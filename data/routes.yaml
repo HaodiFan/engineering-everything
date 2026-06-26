@@ -20,6 +20,7 @@ routes:
       - references/architecture-cases.md
       - references/project-blueprints.md
   - id: inherit
+    skill: engineering-project-inheritance
     aliases: ["/handover", "/audit", "/inherit"]
     signals: ["接手", "老项目", "现有项目", "继续迭代"]
     fuzzy_examples:

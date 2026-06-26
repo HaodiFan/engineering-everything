@@ -14,6 +14,7 @@ from pathlib import Path
 SKILL_NAME = "engineering-everything"
 OLD_SKILL_NAMES = ["software-dev-workflow", "cto-copilot-skill"]
 MAX_SKILL_LINES = 200
+REQUIRED_LIBRARY_SKILLS = {SKILL_NAME, "engineering-project-inheritance"}
 
 
 @dataclass
@@ -76,9 +77,50 @@ def add(findings: list[Finding], level: str, message: str) -> None:
     findings.append(Finding(level, message))
 
 
+def safe_relative(path: Path, root: Path) -> str:
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return str(path)
+
+
+def skill_packages(package: Path) -> list[Path]:
+    skills_dir = package / "skills"
+    if not skills_dir.exists():
+        return []
+    return [path for path in sorted(skills_dir.iterdir()) if (path / "SKILL.md").exists()]
+
+
+def markdown_files(package: Path) -> list[Path]:
+    files: list[Path] = []
+    root_skill = package / "SKILL.md"
+    if root_skill.exists():
+        files.append(root_skill)
+    if (package / "docs").exists():
+        files.extend(sorted((package / "docs").glob("**/*.md")))
+    if (package / "references").exists():
+        files.extend(sorted((package / "references").glob("*.md")))
+    for skill_package in skill_packages(package):
+        for path in [skill_package / "SKILL.md", *sorted((skill_package / "references").glob("*.md"))]:
+            if path.exists():
+                files.append(path)
+    return files
+
+
+def reference_base(path: Path, package: Path) -> Path:
+    relative = path.relative_to(package)
+    if relative.parts and relative.parts[0] == "skills" and len(relative.parts) >= 2:
+        return package / relative.parts[0] / relative.parts[1]
+    return package
+
+
 def check_required_files(root: Path, package: Path, findings: list[Finding]) -> None:
     required = [
         package / "SKILL.md",
+        package / ".codex-plugin/plugin.json",
+        package / "skills/engineering-everything/SKILL.md",
+        package / "skills/engineering-project-inheritance/SKILL.md",
+        package / "skills/engineering-project-inheritance/references/inheriting-projects.md",
         package / "agents/openai.yaml",
         package / "scripts/install.py",
         package / "scripts/skill_doctor.py",
@@ -103,22 +145,73 @@ def check_required_files(root: Path, package: Path, findings: list[Finding]) -> 
 
 
 def check_skill_metadata(root: Path, package: Path, findings: list[Finding]) -> str | None:
+    return check_one_skill_metadata(root, package, package.name if package.parent.name == "skills" else SKILL_NAME, findings)
+
+
+def check_one_skill_metadata(
+    root: Path,
+    package: Path,
+    expected_name: str,
+    findings: list[Finding],
+) -> str | None:
     path = package / "SKILL.md"
     if not path.exists():
         return None
     text = read_text(path)
     frontmatter = parse_frontmatter(text)
     version = frontmatter.get("version")
-    if frontmatter.get("name") != SKILL_NAME:
-        add(findings, "error", f"SKILL.md name must be {SKILL_NAME}")
+    if frontmatter.get("name") != expected_name:
+        add(findings, "error", f"{safe_relative(path, root)} name must be {expected_name}")
+    description = frontmatter.get("description")
+    if not description:
+        add(findings, "error", f"{safe_relative(path, root)} missing description")
+    elif len(description) > 1024:
+        add(findings, "error", f"{safe_relative(path, root)} description exceeds 1024 characters")
+    elif not description.startswith("Use when"):
+        add(findings, "warning", f"{safe_relative(path, root)} description should start with 'Use when'")
     if not version or not re.match(r"^\d+\.\d+\.\d+$", version):
-        add(findings, "error", "SKILL.md version must be semver-like, for example 0.9.0")
+        add(findings, "error", f"{safe_relative(path, root)} version must be semver-like, for example 0.9.0")
     line_count = len(text.splitlines())
     if line_count > MAX_SKILL_LINES:
-        add(findings, "error", f"SKILL.md has {line_count} lines; soft limit is {MAX_SKILL_LINES}")
-    if "工程路由:" not in text:
-        add(findings, "error", "SKILL.md must include the engineering route output field")
+        add(findings, "error", f"{safe_relative(path, root)} has {line_count} lines; soft limit is {MAX_SKILL_LINES}")
+    if expected_name == SKILL_NAME and "工程路由:" not in text:
+        add(findings, "error", f"{safe_relative(path, root)} must include the engineering route output field")
     return version
+
+
+def check_plugin_manifest(root: Path, package: Path, version: str | None, findings: list[Finding]) -> None:
+    path = package / ".codex-plugin/plugin.json"
+    if not path.exists():
+        add(findings, "error", "missing .codex-plugin/plugin.json")
+        return
+    try:
+        manifest = json.loads(read_text(path))
+    except json.JSONDecodeError as exc:
+        add(findings, "error", f"invalid plugin manifest: {exc}")
+        return
+    if manifest.get("name") != SKILL_NAME:
+        add(findings, "error", f".codex-plugin/plugin.json name must be {SKILL_NAME}")
+    if version and manifest.get("version") != version:
+        add(findings, "error", f".codex-plugin/plugin.json version {manifest.get('version')} != SKILL.md {version}")
+    if manifest.get("skills") != "./skills/":
+        add(findings, "error", ".codex-plugin/plugin.json skills must be ./skills/")
+
+
+def check_skill_library(root: Path, package: Path, version: str | None, findings: list[Finding]) -> None:
+    packages = skill_packages(package)
+    names = [path.name for path in packages]
+    for required in sorted(REQUIRED_LIBRARY_SKILLS - set(names)):
+        add(findings, "error", f"missing library skill: skills/{required}/SKILL.md")
+    if len(names) != len(set(names)):
+        add(findings, "error", "duplicate skill package names in skills/")
+    for skill_package in packages:
+        skill_version = check_one_skill_metadata(root, skill_package, skill_package.name, findings)
+        if version and skill_version and skill_version != version:
+            add(
+                findings,
+                "error",
+                f"{safe_relative(skill_package / 'SKILL.md', root)} version {skill_version} != root SKILL.md {version}",
+            )
 
 
 def check_agent_manifest(package: Path, version: str | None, findings: list[Finding]) -> None:
@@ -144,15 +237,32 @@ def check_readme(root: Path, version: str | None, findings: list[Finding]) -> No
         f"${SKILL_NAME}",
         f"~/.codex/skills/{SKILL_NAME}",
         f"~/.agents/skills/{SKILL_NAME}",
+        "~/.codex/skills/engineering-project-inheritance",
+        "~/.agents/skills/engineering-project-inheritance",
+        ".codex-plugin/plugin.json",
+        "skills/engineering-everything/SKILL.md",
+        "skills/engineering-project-inheritance/SKILL.md",
         "python3 scripts/install.py",
+        "--layout legacy",
+        "scripts/self_evolve.py",
         "references/psps-framework.md",
         "references/refactoring-rules.md",
+        "references/self-evolution-harness.md",
     ]
     for needle in required:
         if needle not in text:
             add(findings, "error", f"README.md missing {needle}")
-    if version and f"`{version}`" not in text:
-        add(findings, "warning", f"README.md does not mention current version {version}")
+    if version:
+        current_version_mentions = re.findall(r"当前版本：`([^`]+)`", text)
+        if not current_version_mentions:
+            add(findings, "warning", f"README.md does not mention current version {version}")
+        for mentioned_version in current_version_mentions:
+            if mentioned_version != version:
+                add(
+                    findings,
+                    "error",
+                    f"README.md current version {mentioned_version} != SKILL.md {version}",
+                )
     for old_name in OLD_SKILL_NAMES:
         forbidden = [
             f"${old_name}",
@@ -165,26 +275,23 @@ def check_readme(root: Path, version: str | None, findings: list[Finding]) -> No
 
 
 def check_markdown(package: Path, findings: list[Finding]) -> None:
-    for path in [package / "SKILL.md", *sorted((package / "references").glob("*.md"))]:
-        if not path.exists():
-            continue
+    for path in markdown_files(package):
         text = read_text(path)
         if text.count("```") % 2:
-            add(findings, "error", f"unbalanced fenced code block: {path.relative_to(package.parent)}")
+            add(findings, "error", f"unbalanced fenced code block: {safe_relative(path, package.parent)}")
 
 
 def check_reference_links(package: Path, findings: list[Finding]) -> None:
-    for path in [package / "SKILL.md", *sorted((package / "references").glob("*.md"))]:
-        if not path.exists():
-            continue
+    for path in markdown_files(package):
         text = read_text(path)
         for match in re.finditer(r"`(references/[^`]+?\.md)`", text):
-            target = package / match.group(1)
+            base = reference_base(path, package)
+            target = base / match.group(1)
             if not target.exists():
                 add(
                     findings,
                     "error",
-                    f"missing referenced file {match.group(1)} from {path.relative_to(package.parent)}",
+                    f"missing referenced file {match.group(1)} from {safe_relative(path, package.parent)}",
                 )
 
 
@@ -257,6 +364,9 @@ def check_route_seeds(package: Path, findings: list[Finding]) -> None:
         for reference in re.findall(r"^\s+-\s+(references/[^\s#]+\.md)\s*$", block, re.MULTILINE):
             if not (package / reference).exists():
                 add(findings, "error", f"route {route_id} references missing file: {reference}")
+        skill_match = re.search(r"^\s+skill:\s*([a-z0-9-]+)\s*$", block, re.MULTILINE)
+        if skill_match and not (package / "skills" / skill_match.group(1) / "SKILL.md").exists():
+            add(findings, "error", f"route {route_id} points to missing skill: {skill_match.group(1)}")
 
 
 def check_old_names(root: Path, package: Path, findings: list[Finding]) -> None:
@@ -264,7 +374,14 @@ def check_old_names(root: Path, package: Path, findings: list[Finding]) -> None:
         root / ".git",
     }
     del allow
-    for path in [root / "README.md", package / "SKILL.md", package / "agents/openai.yaml"]:
+    paths = [
+        root / "README.md",
+        package / "SKILL.md",
+        package / "agents/openai.yaml",
+        package / ".codex-plugin/plugin.json",
+        *[skill_package / "SKILL.md" for skill_package in skill_packages(package)],
+    ]
+    for path in paths:
         if not path.exists():
             continue
         text = read_text(path)
@@ -307,6 +424,8 @@ def run() -> tuple[list[Finding], Path, Path]:
         return findings, root, package
     check_required_files(root, package, findings)
     version = check_skill_metadata(root, package, findings)
+    check_plugin_manifest(root, package, version, findings)
+    check_skill_library(root, package, version, findings)
     check_agent_manifest(package, version, findings)
     check_readme(root, version, findings)
     check_markdown(package, findings)

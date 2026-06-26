@@ -1,0 +1,41 @@
+{
+  "name": "engineering-everything",
+  "version": "0.9.6",
+  "description": "Engineering-route skills for product definition, project inheritance, architecture, execution, verification, refactoring, release, organization systems, automation, and skill evolution.",
+  "author": {
+    "name": "Anthony Fan",
+    "url": "https://github.com/HaodiFan"
+  },
+  "homepage": "https://github.com/HaodiFan/engineering-everything",
+  "repository": "https://github.com/HaodiFan/engineering-everything",
+  "license": "UNLICENSED",
+  "keywords": [
+    "engineering",
+    "skills",
+    "architecture",
+    "refactoring",
+    "project-inheritance",
+    "planning",
+    "review"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Engineering Everything",
+    "shortDescription": "工程化万物：主路由 + 场景子 Skill",
+    "longDescription": "Route creative and engineering work into focused skills for project inheritance, product definition, architecture, execution, verification, refactoring, release, organization systems, automation playbooks, and skill evolution.",
+    "developerName": "Anthony Fan",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "用 Engineering Everything 先判断工程路由，再选择对应子 skill。",
+      "我接手了一个已有项目，先帮我盘点现状。"
+    ],
+    "websiteURL": "https://github.com/HaodiFan/engineering-everything",
+    "brandColor": "#2563EB",
+    "screenshots": []
+  }
+}

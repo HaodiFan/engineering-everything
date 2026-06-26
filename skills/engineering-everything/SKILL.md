@@ -33,11 +33,11 @@ Engineering Everything 是主路由 Skill。它不承载所有场景细节，只
 | 命中信号 | 优先使用 |
 |---|---|
 | 接手、老项目、现有 repo、项目很乱、继续迭代 | `engineering-project-inheritance` |
-| 需求、PRD、产品定义、PSPS、想法澄清 | `engineering-product-definition`（待迁移，暂读 `references/psps-framework.md` 与 `references/spec-templates.md`） |
-| 技术栈、架构、选型、脚手架、agent app | `engineering-architecture-design`（待迁移，暂读 `references/architecture-cases.md` 等） |
-| feature 拆解、implementation plan、worktree、review roles | `engineering-execution-planning`（待迁移，暂读 `references/execution-pipeline.md`） |
+| 需求、PRD、产品定义、PSPS、想法澄清 | `engineering-product-definition`（待迁移） |
+| 技术栈、架构、选型、脚手架、agent app | `engineering-architecture-design`（待迁移） |
+| feature 拆解、implementation plan、worktree、review roles | `engineering-execution-planning`（待迁移） |
 | 实现、修 bug、迁移、接接口、验证命令 | `engineering-build-verify`（待迁移） |
-| 重构、清理、模块化、技术债 | `engineering-refactoring`（待迁移，暂读 `references/refactoring-rules.md`） |
+| 重构、清理、模块化、技术债 | `engineering-refactoring`（待迁移） |
 | review、PR、merge、release、发布 | `engineering-review-release`（待迁移） |
 | RPA、OCR、CV、LLM、浏览器自动化、数据分析 | `engineering-automation-playbooks`（待迁移） |
 | 面试、入职、组织、企业、SOP、非工程项目估算 | `engineering-organization-systems`（待迁移） |
@@ -55,9 +55,5 @@ Engineering Everything 是主路由 Skill。它不承载所有场景细节，只
 
 ## References
 
-- `docs/design/active/2026-06-27-split-skill-library.md`：多 Skill 拆分设计。
-- `data/routes.yaml`：机器可读路由 seed。
-- `references/engineering-scenario-map.md`：旧版路由地图，迁移完成前仍可参考。
-- `references/lessons.md`：Skill 级 L1 纠偏日志。
-- `references/patterns-skill.md`：Skill 级 L2 可复用模式。
-- `references/self-evolution-harness.md`：Skill 自进化门禁。
+- 源仓库的 `data/routes.yaml` 是机器可读路由 seed。
+- 源仓库的旧版 route map 在迁移完成前仍可用于校准主路由。
