@@ -68,14 +68,15 @@ routes:
       - references/checklists.md
       - references/execution-pipeline.md
   - id: learn
-    aliases: ["/learn", "/lesson", "/pattern"]
-    signals: ["记住", "纠偏", "不对", "以后都这样"]
+    aliases: ["/learn", "/lesson", "/pattern", "/self-evolve"]
+    signals: ["记住", "纠偏", "不对", "以后都这样", "自进化", "升级 skill"]
     fuzzy_examples:
       - "这个纠偏记住，以后都按这个判断"
     stages: ["8", "9"]
     references:
       - references/lessons.md
       - references/patterns-skill.md
+      - references/self-evolution-harness.md
   - id: talent
     aliases: ["/interview", "/hire", "/scorecard"]
     signals: ["面试", "候选人", "招聘", "JD", "评分卡", "debrief"]

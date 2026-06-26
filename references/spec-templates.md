@@ -61,6 +61,7 @@ docs/
 | Checkout / Worktree / Implementation Plan / Review Pipeline | `execution-pipeline.md` |
 | Refactor Plan / 行为保持型重构 | `refactoring-rules.md`、`checklists.md` |
 | Agent 执行纪律 / Source-driven gate / Change size | `agent-operating-standards.md` |
+| App for Agent / Day 1 CLI 底座 / agent operation surface | `app-for-agent-design-paradigm.md` |
 | Memory Bank | `memory-bank-guide.md` |
 | Prompts 操作手册 | `prompts-guide.md` |
 | Skill 级 L1 纠偏日志 | `lessons.md` |

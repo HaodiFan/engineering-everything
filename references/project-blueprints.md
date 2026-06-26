@@ -6,6 +6,7 @@
 > - 形态决策与判断流程见 `architecture-cases.md` §0。
 > - 20 大类通用架构决策见 `architecture-cases.md`。
 > - AI 项目额外的 11 大类架构决策见 `architecture-cases-ai.md`。
+> - 如果新项目是“给 agent 操作的 app”，Day 1 还要读取 `app-for-agent-design-paradigm.md`，先落 protocol / CLI / manifest / actor / permission / audit / test scaffold。
 > - 本文件**只管 starter 目录结构与首次提交清单**，不重复架构决策内容。
 
 ## 形态速查（详细决策见 architecture-cases.md §0）
@@ -217,7 +218,7 @@ services/backend-api/tests/.gitkeep
 - `local-services/mcp-server/`：把本地资源暴露给 MCP-capable agent；如暂不做 MCP，可留 `.gitkeep`。
 - `packages/protocol/`：IPC、CLI、runtime、agent 消息契约。
 - `packages/ui/`：跨 app 复用的无业务组件。
-- `packages/cli/`：本地命令面；可承载 `ext` / `exec` 风格接口。
+- `packages/cli/`：本地命令面；可承载 `ext` / `exec` 风格接口。面向 agent 操作的 app 必须按 `app-for-agent-design-paradigm.md` 在 Day 1 落 generic `ext describe/call/stream`、managed `exec`、mock-server CLI tests 和 agent-readable command reference。
 - `skills/`：可加载 agent skills。
 - `distribution/`：签名、打包、安装器、release notes。
 - `config/`：只存模板；运行时配置在用户目录。

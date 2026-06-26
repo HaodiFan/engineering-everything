@@ -1,7 +1,8 @@
 ---
 name: engineering-everything
 description: Engineering Everything 是用工程思维看待一切创造型任务的决策 Skill，默认用中文交互。用于 Codex 需要先判断工程路由，再在软件开发、组织构建、企业机制、SOP/流程、产品定义、人才面试、入职培训、非工程项目方案/排期/人天/成本估算、项目形态、架构选型、业务场景、执行计划、验证、代码审查、发布治理和经验沉淀之间选择正确知识路径时；适用于新建项目、接手旧项目、非软件开发项目、组织/企业工程化、legacy 治理、POC/spike、PRD/design doc、ADR、脚手架、RPA/电商数据采集、OCR、CV、LLM/Agent、数据分析、PR/release readiness 等场景。先输出路由判断，再决定读哪个 reference、补哪个产物、跑哪个 gate。保留 lessons / patterns / reference 三层 knowhow 机制，让每次用户纠偏可沉淀成可复用工程判断。
-version: 0.9.1
+metadata:
+  version: 0.9.6
 ---
 
 # Engineering Everything / 工程化万物
@@ -68,7 +69,7 @@ version: 0.9.1
 ### 5. 是从 0 开始的新项目吗？
 
 - 信号：用户从想法、空目录、新 repo、"怎么搭项目"开始。
-- 行动：读取 `references/project-blueprints.md`、`references/architecture-cases.md`（AI 项目再加 `architecture-cases-ai.md`）、`references/spec-templates.md`；若业务场景明确，读取 `references/scenario-playbooks.md`。
+- 行动：读取 `references/project-blueprints.md`、`references/architecture-cases.md`（AI 项目再加 `architecture-cases-ai.md`；如果是 app for agent / agent 可操作 app / Day 1 CLI 底座，再加 `app-for-agent-design-paradigm.md`）、`references/spec-templates.md`；若业务场景明确，读取 `references/scenario-playbooks.md`。
 - 规则：按 Stage 0–4 的真实 8 步顺序推进（见 `stage-playbook.md`）；脚手架阶段同时落地 `CONSTITUTION.md`、`docs/decisions/`、`docs/memory-bank/`、`docs/prompts/`（见 `memory-bank-guide.md` 与 `prompts-guide.md`）。
 
 ### 6. 是人才、培训、非工程项目或方法论建设吗？
@@ -116,7 +117,7 @@ version: 0.9.1
 - **Library / SDK**：可复用包、公共 API、示例、兼容性承诺。
 - **Full-stack Monorepo**：多个 app、共享协议、共享 UI、长期跨端演进。
 
-AI/Agent 类项目额外读取 `references/architecture-cases-ai.md`。
+AI/Agent 类项目额外读取 `references/architecture-cases-ai.md`。当用户要设计“给 agent 操作的 app”、要求 Day 1 就有 CLI / manifest / MCP / tool wrapper / agent operation surface 时，额外读取 `references/app-for-agent-design-paradigm.md`。
 
 业务自动化场景额外读取 `references/scenario-playbooks.md`，尤其是 RPA/数据采集、OCR/文档智能、视觉/多媒体质检、数据治理/分析报表、LLM 生产链路、浏览器自动化、POC/spike。
 
@@ -171,7 +172,7 @@ Skill 有三层 knowhow，agent 必须主动维护：
 ## 工程化工具（v0.9.0 起）
 
 - 安装 / 升级优先使用 `scripts/install.py`，不要手写复制命令。
-- 改 Skill 结构、版本、引用、安装路径后必须跑 `scripts/skill_doctor.py`。
+- 改 Skill 结构、版本、引用、安装路径后必须跑 `scripts/self_evolve.py check` 与 `scripts/skill_doctor.py`；涉及 GitHub issue、线上 repo 或发布时加跑 `scripts/self_evolve.py doctor`。
 - 捕获 lesson 时可用 `scripts/lesson.py` 分配编号、生成卡片并校验字段。
 
 ## References
@@ -184,7 +185,7 @@ Skill 有三层 knowhow，agent 必须主动维护：
 - `references/scenario-playbooks.md`：按业务自动化场景补充技术选型、最小切片、验证门禁和反模式（RPA/OCR/视觉/数据/LLM/浏览器自动化/POC）。
 - `references/project-blueprints.md`：5 种项目形态的 starter 目录结构与首次提交清单。
 - `references/architecture-cases.md`：通用架构选型 case 库（Repo / 渲染 / 后端 / 数据 / 部署 / 鉴权 / 异步 / 可观测性 / 业务自动化 / 客户端 / 状态管理 / 测试 / CI/CD / 配置 / i18n / 合规 / 性能等 20 大类）。
-- `references/architecture-cases-ai.md`：AI / Agent 专项架构选型 case 库（LLM 调用、Agent runtime、工具调用、记忆、RAG、向量库、Prompt 管理、评估、安全等）。
+- `references/architecture-cases-ai.md` / `references/app-for-agent-design-paradigm.md`：AI / Agent 专项架构选型；后者用于 app for agent 的 Day 1 protocol / CLI / manifest / actor / permission / audit / exec / test scaffold。
 - `references/spec-templates.md`：模板索引，按需路由到 `templates-core.md` / `templates-governance.md` / `templates-specs.md`。
 - `references/templates-core.md`：README / ARCHITECTURE / DEVELOPMENT / BRANCHING / DESIGN / AGENTS 模板。
 - `references/templates-governance.md`：CONSTITUTION（红线）/ ADR / Folder Declaration / glossary / changelog 模板。
@@ -196,5 +197,4 @@ Skill 有三层 knowhow，agent 必须主动维护：
 - `references/inheriting-projects.md`：接手已有项目的盘点流程（含 §1.0 自动识别）、现状报告模板、文档补齐顺序。
 - `references/memory-bank-guide.md`：AI agent 跨会话上下文的"指针 + 增量"模式（brief / tech-context / patterns / active-context）。
 - `references/prompts-guide.md`：可复用 prompt 模板（lifecycle/avatar aliases / scaffold / spike-start / handover-audit / new-feature / scenario-routing / new-design-doc / new-adr / pre-pr / refactor-safely / debug-incident / capture-lesson / promote-pattern）。
-- `references/lessons.md`：**Skill 级 L1 纠偏日志**（每次用户纠正方案，agent 主动追加；连续编号 L-NNNN）。
-- `references/patterns-skill.md`：**Skill 级 L2 验证过的 pattern 库**（来自 lessons 的合并；连续编号 P-NNNN）。
+- `references/lessons.md` / `references/patterns-skill.md` / `references/self-evolution-harness.md`：Skill 级 L1/L2 知识沉淀与自进化门禁。

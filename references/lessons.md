@@ -148,7 +148,7 @@ L3 Reference 升级           owner 开 PR 改对应 reference
 
 > 新条目追加到本节末尾，**保持时间顺序**。第一条用 L-0001 开始。
 >
-> 当前条目数：1。
+> 当前条目数：2。
 
 <!-- 示例（不删，是 agent 仿写的样本）：
 
@@ -213,3 +213,33 @@ RAG 的运维成本（embedding 重建、向量库一致性、检索召回 tunin
 **🔗 相关**：
 
 - 影响 reference: `memory-bank-guide.md` 的 active-context 使用规则
+
+### L-0002: README 不承载 design doc 细节
+
+- Date: 2026-06-14
+- Status: active
+- Captured-from: EvoZeus README 按 OpenClaw 和 Engineering Everything 调整时，用户指出状态句、roadmap 和 docs 编号显得草率像半成品
+- Tags: practice-doc, gov-adr, gov-design-lifecycle
+
+**❌ 之前的错误方案 / 默认建议**：
+
+把阶段表、pack manifest、计划中的 URL、roadmap 和内部草稿状态直接放在 README 首页，导致入口页像半成品 design doc。
+
+**✅ 正确方案 / 用户给的纠偏**：
+
+README 只放当前事实、用户入口、核心定位和可用 surface；设计细节下沉到 `docs/design/{backlog,active,done}/`，决策用 `ADR-NNNN`，治理和参考资料分别进入 `docs/governance/` 与 `docs/reference/`。
+
+**🧠 原因 / 适用条件**：
+
+适用于开源项目、协议型项目和社区共创项目首页；README 是认知入口和信任入口，不是 spec dump。实现细节、生命周期、编号规范和未来计划应进入 docs 分层，避免向外暴露草稿感。
+
+**🔁 是否可泛化**：
+
+- [x] 跨项目可复用（→ 候选 promote 到 patterns-skill.md）
+- [ ] 仅特定项目（→ 应该写到该项目自己的 patterns.md，不是这里）
+- [ ] 仅特定场景：<场景名>
+
+**🔗 相关**：
+
+- 影响 reference: `templates-core.md` 的 README 边界、`spec-templates.md` 的 design doc lifecycle、`templates-governance.md` 的 ADR / folder declaration 规范
+- 关联 lesson: 暂无

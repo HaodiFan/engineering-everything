@@ -4,6 +4,8 @@
 
 格式与通用 case 库一致：定位 / 适用 / 反例 / 代价 / 退出成本 / 组合 / 决策信号 / Worked example / 踩坑。
 
+如果目标不是单个 Agent runtime，而是要设计一个“给 agent 操作的 app”（例如需要 Day 1 CLI、manifest、MCP/tool wrapper、operation surface、actor/permission/audit），先读取 `app-for-agent-design-paradigm.md`，再回到本文件做 LLM / Agent runtime / tool protocol 等专项选型。
+
 每大类末尾给决策矩阵。
 
 > 推荐度图例：✅ 推荐 / ◯ 可用但有代价 / ⚠️ 谨慎 / ❌ 不推荐

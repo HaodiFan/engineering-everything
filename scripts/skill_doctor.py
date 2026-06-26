@@ -23,10 +23,17 @@ class Finding:
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    package = Path(__file__).resolve().parents[1]
+    if package.parent.name == "skills" and package.parent.parent.name in {".agents", ".codex"}:
+        return package.parent
+    if (package / "README.md").exists():
+        return package
+    return package.parent
 
 
 def skill_dir(root: Path) -> Path:
+    if (root / "SKILL.md").exists():
+        return root
     return root / SKILL_NAME
 
 
@@ -76,6 +83,7 @@ def check_required_files(root: Path, package: Path, findings: list[Finding]) -> 
         package / "scripts/install.py",
         package / "scripts/skill_doctor.py",
         package / "scripts/lesson.py",
+        package / "scripts/self_evolve.py",
         package / "schemas/lesson.schema.json",
         package / "schemas/pattern.schema.json",
         package / "data/routes.yaml",
@@ -85,6 +93,7 @@ def check_required_files(root: Path, package: Path, findings: list[Finding]) -> 
         package / "references/engineering-scenario-map.md",
         package / "references/psps-framework.md",
         package / "references/refactoring-rules.md",
+        package / "references/self-evolution-harness.md",
     ]
     if not is_installed_layout(root, package):
         required.insert(0, root / "README.md")
@@ -135,7 +144,7 @@ def check_readme(root: Path, version: str | None, findings: list[Finding]) -> No
         f"${SKILL_NAME}",
         f"~/.codex/skills/{SKILL_NAME}",
         f"~/.agents/skills/{SKILL_NAME}",
-        f"python3 {SKILL_NAME}/scripts/install.py",
+        "python3 scripts/install.py",
         "references/psps-framework.md",
         "references/refactoring-rules.md",
     ]
@@ -272,6 +281,23 @@ def check_json_schemas(package: Path, findings: list[Finding]) -> None:
             add(findings, "error", f"invalid JSON schema {path.relative_to(package.parent)}: {exc}")
 
 
+def check_self_evolution_harness(package: Path, findings: list[Finding]) -> None:
+    skill_path = package / "SKILL.md"
+    routes_path = package / "data/routes.yaml"
+    if skill_path.exists():
+        skill_text = read_text(skill_path)
+        for needle in ["scripts/self_evolve.py", "references/self-evolution-harness.md"]:
+            if needle not in skill_text:
+                add(findings, "error", f"SKILL.md missing self-evolution reference: {needle}")
+    if routes_path.exists():
+        routes_text = read_text(routes_path)
+        learn_block = parse_route_blocks(routes_text).get("learn", "")
+        if "/self-evolve" not in learn_block:
+            add(findings, "error", "learn route missing /self-evolve alias")
+        if "references/self-evolution-harness.md" not in learn_block:
+            add(findings, "error", "learn route missing references/self-evolution-harness.md")
+
+
 def run() -> tuple[list[Finding], Path, Path]:
     root = repo_root()
     package = skill_dir(root)
@@ -288,6 +314,7 @@ def run() -> tuple[list[Finding], Path, Path]:
     check_route_seeds(package, findings)
     check_old_names(root, package, findings)
     check_json_schemas(package, findings)
+    check_self_evolution_harness(package, findings)
     return findings, root, package
 
 

@@ -41,7 +41,7 @@ def copy_package(source: Path, dest: Path, delete: bool, dry_run: bool) -> str:
         source,
         dest,
         dirs_exist_ok=not delete,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store"),
+        ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc", ".DS_Store"),
     )
     return f"installed {dest}"
 
