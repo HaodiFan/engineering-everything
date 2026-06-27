@@ -1,0 +1,61 @@
+name: Skill feedback
+description: Report an unsatisfactory Skill result and help evolve the Skill.
+title: "[Skill Feedback]: "
+labels:
+  - skill-feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when the Skill result was unsatisfactory. Do not include secrets, customer data, raw private sessions, or unredacted commercial context.
+  - type: textarea
+    id: bad_result
+    attributes:
+      label: 不满意的 Skill 结果
+      description: What did the Skill produce or guide incorrectly?
+      placeholder: The Skill result was unsatisfactory because...
+    validations:
+      required: true
+  - type: textarea
+    id: expected_result
+    attributes:
+      label: 期望结果
+      description: What should the Skill have done instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现输入或场景
+      description: Provide a redacted input, prompt, task summary, or scenario.
+    validations:
+      required: true
+  - type: dropdown
+    id: evidence_boundary
+    attributes:
+      label: 证据边界
+      description: What kind of evidence is safe to discuss in this Issue?
+      options:
+        - Public evidence only
+        - Redacted private evidence
+        - Private/internal evidence, do not publish raw content
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: 影响程度
+      options:
+        - P0 - Blocks safe Skill use
+        - P1 - Misleads important work
+        - P2 - Causes repeated friction
+        - P3 - Minor wording or clarity issue
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: 补充说明
+      description: Optional context, links, or screenshots after redaction.
+    validations:
+      required: false

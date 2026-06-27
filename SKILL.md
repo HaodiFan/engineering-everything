@@ -2,7 +2,7 @@
 name: engineering-everything
 description: Use when a task needs engineering-route judgment before choosing product definition, project inheritance, architecture, execution, build, refactor, review, release, organization, automation, or skill-evolution work.
 metadata:
-  version: 0.9.10
+  version: 0.10.0
 ---
 
 # Engineering Everything / 工程化万物
@@ -71,3 +71,62 @@ Engineering Everything 是主路由 Skill。它不承载所有场景细节，只
 - `references/lessons.md`：Skill 级 L1 纠偏日志。
 - `references/patterns-skill.md`：Skill 级 L2 可复用模式。
 - `references/self-evolution-harness.md`：Skill 自进化门禁。
+
+## 自进化方法
+
+本 Skill 已由 EvoZeus-wrapper 接入自进化闭环。后续任何行为改动都必须先留下可追踪证据，再进入实现。
+
+源头发现顺序：
+
+1. 先读取本 repo 的 `.evozeus/wrapper.json`，以 `canonical_repo` 作为目标 repo。
+2. 再检查 `~/.evozeus/.projects/HaodiFan/engineering-everything` 是否存在并指向 canonical repo。
+3. 验证 canonical repo 的 git origin / GitHub repo 可访问。
+4. 再检查 runtime install：`~/.codex/skills/<skill-name>`、`~/.agents/skills/<skill-name>`；它们只能是指向 canonical repo 的安装指针。
+5. 只有 wrapper manifest 和 project pointer 都无法确认时，才进入 GitHub user/org/public search。
+
+进化流程：
+
+1. 使用中出现不满意结果时，先提交 Skill Feedback Issue，写清不满意结果、期望结果、复现场景、证据边界和影响程度。
+2. 每次运行本 Skill 前，先执行 `python3 scripts/evozeus_wrapper_preflight.py doctor --repo HaodiFan/engineering-everything`，确认 wrapper source contract 成立。
+3. 再执行 `python3 scripts/evozeus_wrapper_preflight.py version --repo HaodiFan/engineering-everything`，确认 GitHub latest release 没有新版本。
+4. 开始修改前，在 `docs/designs/` 新建设计文档，明确 Related issue、优化目标、实现计划、验证计划和 release plan。
+5. PR 必须同步更新 `SKILL.md` 与 `CHANGELOG.md`，并通过 `python3 scripts/evozeus_wrapper_preflight.py structure` 和 PR 检查。
+6. 合并后用 `vMAJOR.MINOR.PATCH` release tag 和 release notes 固化本次进化，保留可回滚记录。
+
+边界：不要把 raw private session、客户资料、secret、未脱敏商业上下文写入公开 Issue、docs 或 release notes；`~/.evozeus/.projects/HaodiFan/engineering-everything/` 应指向 canonical repo，runtime install 不能作为 copied install 或第二事实源直接修改。
+
+Target repo: `HaodiFan/engineering-everything`
+Visibility: `public`
+Current Skill version: `v0.10.0`
+Wrapper harness version: `v0.2.0`
+
+## EvoZeus-wrapper
+
+本区由 EvoZeus-wrapper 追加，用来说明本 Skill 的 wrapper harness 路由、版本记录和迁移规则。它不覆盖原 Skill 的业务规则；涉及业务行为变化时，仍必须走 Issue、design doc、PR、CHANGELOG 和 release。
+
+调用 wrapper 的场景：
+
+1. 本 Skill 需要 repo 化、adopt/repair wrapper harness、或确认 canonical source。
+2. `.evozeus/wrapper.json` 中的 wrapper harness version 落后于 EvoZeus-wrapper 最新版本。
+3. `~/.evozeus/.projects/HaodiFan/engineering-everything`、`.codex` 或 `.agents` runtime install 疑似不是同一个 source of truth。
+4. 使用反馈需要从 Skill Feedback Issue 进入 design doc、PR、CHANGELOG、release 的自进化闭环。
+5. 目标 GitHub repo、release tag、GitHub Pages 或 preflight check 需要创建、诊断或修复。
+
+路由规则：
+
+- 目标 Skill 行为问题：先提交 Skill Feedback Issue，不直接改 runtime install。
+- 源头/安装问题：先运行 `python3 scripts/evozeus_wrapper_preflight.py doctor --repo HaodiFan/engineering-everything`。
+- 结构问题：运行 `python3 scripts/evozeus_wrapper_preflight.py structure`。
+- Skill release 问题：运行 `python3 scripts/evozeus_wrapper_preflight.py version --repo HaodiFan/engineering-everything`。
+- wrapper harness 升级：回到 EvoZeus-wrapper repo，运行 `python3 scripts/evozeus_wrapper.py harness upgrade-check --target <this-skill-repo> --latest-version <wrapper-version> --json`，再用 `harness upgrade --dry-run` 生成迁移方案。
+
+Append-only 迁移规则：
+
+- wrapper 升级只能追加本区缺失内容、`docs/wrapper-migrations/` 迁移记录，或更新 wrapper-managed files；不要重写原 Skill 业务段落。
+- 如果本区已存在，升级时追加 migration note，不改写旧文本。
+- 每次 wrapper 升级必须记录 from/to wrapper version、planned files、验证命令、回滚方案和是否需要人工 merge review。
+- wrapper version 事实源是 `.evozeus/wrapper.json` 的 `wrapper_version`；Skill release 仍以 GitHub release / `CHANGELOG.md` 为准。
+
+Wrapper harness version: `v0.2.0`
+Wrapper manifest: `.evozeus/wrapper.json`
+Wrapper migration log: `docs/wrapper-migrations/`

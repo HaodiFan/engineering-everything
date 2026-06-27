@@ -1,0 +1,52 @@
+name: EvoZeus Wrapper Preflight
+
+on:
+  issues:
+    types: [opened, edited]
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  release:
+    types: [published, edited]
+
+jobs:
+  issue:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write issue body
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          Path("/tmp/skill-feedback-issue.md").write_text(os.environ.get("ISSUE_BODY", ""), encoding="utf-8")
+          PY
+      - name: Validate issue template content
+        run: python3 scripts/evozeus_wrapper_preflight.py issue --file /tmp/skill-feedback-issue.md
+
+  pull-request:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Skill evolution PR
+        run: python3 scripts/evozeus_wrapper_preflight.py pr
+
+  release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write release body
+        env:
+          RELEASE_BODY: ${{ github.event.release.body }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          Path("/tmp/release-notes.md").write_text(os.environ.get("RELEASE_BODY", ""), encoding="utf-8")
+          PY
+      - name: Validate release notes
+        run: python3 scripts/evozeus_wrapper_preflight.py release --tag "${{ github.event.release.tag_name }}" --release-notes /tmp/release-notes.md --skip-gh
