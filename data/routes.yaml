@@ -1,24 +1,26 @@
 # Machine-readable route seeds. The agent still makes the final engineering judgment.
 routes:
   - id: product
+    skill: engineering-product-definition
     aliases: ["/spec", "/define", "/prd"]
     signals: ["想法", "需求", "PRD", "做个系统", "用户场景"]
     fuzzy_examples:
       - "我有个想法，先帮我判断怎么定义需求"
     stages: ["0", "1", "2"]
     references:
-      - references/stage-playbook.md
-      - references/checklists.md
-      - references/spec-templates.md
+      - skills/engineering-product-definition/references/stage-playbook.md
+      - skills/engineering-product-definition/references/checklists.md
+      - skills/engineering-product-definition/references/spec-templates.md
   - id: architecture
+    skill: engineering-architecture-design
     aliases: ["/arch", "/scaffold", "/new-project"]
     signals: ["技术栈", "架构", "选型", "从 0 搭", "starter"]
     fuzzy_examples:
       - "我要从 0 搭一个项目，技术栈怎么选"
     stages: ["3", "4"]
     references:
-      - references/architecture-cases.md
-      - references/project-blueprints.md
+      - skills/engineering-architecture-design/references/architecture-cases.md
+      - skills/engineering-architecture-design/references/project-blueprints.md
   - id: inherit
     skill: engineering-project-inheritance
     aliases: ["/handover", "/audit", "/inherit"]
@@ -27,98 +29,119 @@ routes:
       - "我接手了一个旧项目，先帮我看怎么继续"
     stages: ["I"]
     references:
-      - references/inheriting-projects.md
+      - skills/engineering-project-inheritance/references/inheriting-projects.md
   - id: execution-plan
+    skill: engineering-execution-planning
     aliases: ["/plan", "/split"]
     signals: ["怎么拆", "implementation plan", "feature 规划"]
     fuzzy_examples:
       - "这个功能怎么拆成可执行计划"
     stages: ["5"]
     references:
-      - references/execution-pipeline.md
-      - references/checklists.md
+      - skills/engineering-execution-planning/references/execution-pipeline.md
+      - skills/engineering-execution-planning/references/checklists.md
   - id: build
+    skill: engineering-build-verify
     aliases: ["/build", "/fix", "/migrate"]
     signals: ["实现", "修 bug", "迁移", "写代码", "接接口"]
     fuzzy_examples:
       - "帮我实现这个功能并跑验证"
     stages: ["6"]
     references:
-      - references/stage-playbook.md
-      - references/execution-pipeline.md
-      - references/agent-operating-standards.md
+      - skills/engineering-build-verify/references/stage-playbook.md
+      - skills/engineering-build-verify/references/execution-pipeline.md
+      - skills/engineering-build-verify/references/agent-operating-standards.md
   - id: refactor
+    skill: engineering-refactoring
     aliases: ["/refactor", "/cleanup", "/modularize"]
     signals: ["重构", "清理", "模块化", "重命名", "技术债", "refactor", "cleanup"]
     fuzzy_examples:
       - "这个模块太乱，帮我按行为保持方式重构"
     stages: ["9"]
     references:
-      - references/stage-playbook.md
-      - references/refactoring-rules.md
-      - references/checklists.md
-      - references/execution-pipeline.md
+      - skills/engineering-refactoring/references/stage-playbook.md
+      - skills/engineering-refactoring/references/refactoring-rules.md
+      - skills/engineering-refactoring/references/checklists.md
+      - skills/engineering-refactoring/references/execution-pipeline.md
   - id: review-release
+    skill: engineering-review-release
     aliases: ["/test", "/review", "/ship", "/release"]
     signals: ["review", "PR", "merge", "release", "发布"]
     fuzzy_examples:
       - "review 这个 PR，判断能不能 merge"
     stages: ["7", "8"]
     references:
-      - references/code-review-standards.md
-      - references/checklists.md
-      - references/execution-pipeline.md
-  - id: learn
-    aliases: ["/learn", "/lesson", "/pattern", "/self-evolve"]
-    signals: ["记住", "纠偏", "不对", "以后都这样", "自进化", "升级 skill"]
+      - skills/engineering-review-release/references/code-review-standards.md
+      - skills/engineering-review-release/references/checklists.md
+      - skills/engineering-review-release/references/execution-pipeline.md
+  - id: automation
+    skill: engineering-automation-playbooks
+    aliases: ["/automation", "/rpa", "/ocr", "/llm"]
+    signals: ["RPA", "OCR", "CV", "LLM", "浏览器自动化", "数据分析", "报表", "POC", "spike"]
     fuzzy_examples:
-      - "这个纠偏记住，以后都按这个判断"
+      - "我要做一个 OCR/LLM/RPA 自动化 POC，先判断技术路线"
+    stages: ["P", "3", "5", "6", "7"]
+    references:
+      - skills/engineering-automation-playbooks/references/scenario-playbooks.md
+      - skills/engineering-automation-playbooks/references/architecture-cases-ai.md
+      - skills/engineering-automation-playbooks/references/checklists.md
+  - id: learn
+    skill: engineering-skill-evolution
+    aliases: ["/learn", "/lesson", "/pattern", "/self-evolve"]
+    signals: ["记住", "记录 lesson", "创建 lesson issue", "以后都这样", "自进化", "升级 skill"]
+    fuzzy_examples:
+      - "这个规则以后都这样，帮我创建 lesson issue"
     stages: ["8", "9"]
     references:
-      - references/lessons.md
-      - references/patterns-skill.md
-      - references/self-evolution-harness.md
+      - skills/engineering-skill-evolution/references/lessons.md
+      - skills/engineering-skill-evolution/references/patterns-skill.md
+      - skills/engineering-skill-evolution/references/self-evolution-harness.md
   - id: talent
+    skill: engineering-organization-systems
     aliases: ["/interview", "/hire", "/scorecard"]
     signals: ["面试", "候选人", "招聘", "JD", "评分卡", "debrief"]
     fuzzy_examples:
       - "我要面试一个后端工程师，帮我设计流程和评分卡"
     stages: ["I", "0", "1", "7"]
     references:
-      - references/engineering-scenarios.md
+      - skills/engineering-organization-systems/references/engineering-scenarios.md
   - id: onboarding
+    skill: engineering-organization-systems
     aliases: ["/onboard", "/training", "/bootcamp"]
     signals: ["入职", "培训", "企业介绍", "协同机制", "开发机制", "新人"]
     fuzzy_examples:
       - "给新人做入职培训和工程化培训"
     stages: ["0", "1", "6", "7", "8"]
     references:
-      - references/engineering-scenarios.md
-      - references/templates-core.md
+      - skills/engineering-organization-systems/references/engineering-scenarios.md
+      - skills/engineering-organization-systems/references/templates-core.md
   - id: organization-system
+    skill: engineering-organization-systems
     aliases: ["/org", "/company", "/sop"]
     signals: ["构建组织", "构建企业", "组织机制", "企业机制", "SOP", "流程", "制度", "协同机制"]
     fuzzy_examples:
       - "我要搭一个组织/企业/SOP，按工程方式拆机制和落地路径"
     stages: ["0", "1", "2", "5", "7", "8"]
     references:
-      - references/engineering-scenarios.md
-      - references/templates-core.md
-      - references/checklists.md
+      - skills/engineering-organization-systems/references/engineering-scenarios.md
+      - skills/engineering-organization-systems/references/templates-core.md
+      - skills/engineering-organization-systems/references/checklists.md
   - id: project-ops
+    skill: engineering-organization-systems
     aliases: ["/estimate", "/wbs", "/project"]
     signals: ["非工程项目", "方案", "排期", "人天", "成本估算", "WBS"]
     fuzzy_examples:
       - "帮我把这个非工程项目拆方案、排期、人天和成本"
     stages: ["0", "1", "2", "5", "7", "8"]
     references:
-      - references/engineering-scenarios.md
+      - skills/engineering-organization-systems/references/engineering-scenarios.md
   - id: non-software-development
+    skill: engineering-organization-systems
     aliases: ["/artifact", "/nonsoftware", "/workspace"]
     signals: ["文件输出", "Skill 开发", "多维表", "知识库", "目标产出物"]
     fuzzy_examples:
       - "我要做一个多维表/文件输出/Skill 开发项目，按工程方式组织"
     stages: ["0", "1", "2", "3", "4", "5", "7"]
     references:
-      - references/engineering-scenarios.md
-      - references/spec-templates.md
+      - skills/engineering-organization-systems/references/engineering-scenarios.md
+      - skills/engineering-organization-systems/references/spec-templates.md

@@ -14,7 +14,19 @@ from pathlib import Path
 SKILL_NAME = "engineering-everything"
 OLD_SKILL_NAMES = ["software-dev-workflow", "cto-copilot-skill"]
 MAX_SKILL_LINES = 200
-REQUIRED_LIBRARY_SKILLS = {SKILL_NAME, "engineering-project-inheritance"}
+REQUIRED_LIBRARY_SKILLS = {
+    SKILL_NAME,
+    "engineering-architecture-design",
+    "engineering-automation-playbooks",
+    "engineering-build-verify",
+    "engineering-execution-planning",
+    "engineering-organization-systems",
+    "engineering-product-definition",
+    "engineering-project-inheritance",
+    "engineering-refactoring",
+    "engineering-review-release",
+    "engineering-skill-evolution",
+}
 
 
 @dataclass
@@ -212,6 +224,12 @@ def check_skill_library(root: Path, package: Path, version: str | None, findings
                 "error",
                 f"{safe_relative(skill_package / 'SKILL.md', root)} version {skill_version} != root SKILL.md {version}",
             )
+        if skill_package.name != SKILL_NAME and not list((skill_package / "references").glob("*.md")):
+            add(
+                findings,
+                "error",
+                f"{safe_relative(skill_package, root)} must include self-contained references/*.md",
+            )
 
 
 def check_agent_manifest(package: Path, version: str | None, findings: list[Finding]) -> None:
@@ -326,6 +344,7 @@ def check_route_seeds(package: Path, findings: list[Finding]) -> None:
         "refactor",
         "review-release",
         "learn",
+        "automation",
         "talent",
         "onboarding",
         "organization-system",
@@ -334,6 +353,7 @@ def check_route_seeds(package: Path, findings: list[Finding]) -> None:
     }
     required_aliases = {
         "talent": {"/interview", "/hire", "/scorecard"},
+        "automation": {"/automation", "/rpa", "/ocr", "/llm"},
         "refactor": {"/refactor", "/cleanup", "/modularize"},
         "onboarding": {"/onboard", "/training", "/bootcamp"},
         "organization-system": {"/org", "/company", "/sop"},
@@ -361,12 +381,25 @@ def check_route_seeds(package: Path, findings: list[Finding]) -> None:
         missing_aliases = required_aliases.get(route_id, set()) - set(aliases)
         if missing_aliases:
             add(findings, "error", f"route {route_id} missing aliases: {', '.join(sorted(missing_aliases))}")
-        for reference in re.findall(r"^\s+-\s+(references/[^\s#]+\.md)\s*$", block, re.MULTILINE):
+        route_references = re.findall(r"^\s+-\s+((?:references|skills)/[^\s#]+\.md)\s*$", block, re.MULTILINE)
+        for reference in route_references:
             if not (package / reference).exists():
                 add(findings, "error", f"route {route_id} references missing file: {reference}")
         skill_match = re.search(r"^\s+skill:\s*([a-z0-9-]+)\s*$", block, re.MULTILINE)
-        if skill_match and not (package / "skills" / skill_match.group(1) / "SKILL.md").exists():
-            add(findings, "error", f"route {route_id} points to missing skill: {skill_match.group(1)}")
+        if skill_match:
+            skill_name = skill_match.group(1)
+            if not (package / "skills" / skill_name / "SKILL.md").exists():
+                add(findings, "error", f"route {route_id} points to missing skill: {skill_name}")
+            expected_prefix = f"skills/{skill_name}/references/"
+            for reference in route_references:
+                if reference.startswith("references/"):
+                    add(findings, "error", f"route {route_id} still references root reference: {reference}")
+                elif not reference.startswith(expected_prefix):
+                    add(
+                        findings,
+                        "error",
+                        f"route {route_id} reference {reference} must live under {expected_prefix}",
+                    )
 
 
 def check_old_names(root: Path, package: Path, findings: list[Finding]) -> None:
@@ -399,13 +432,26 @@ def check_json_schemas(package: Path, findings: list[Finding]) -> None:
 
 
 def check_self_evolution_harness(package: Path, findings: list[Finding]) -> None:
-    skill_path = package / "SKILL.md"
+    skill_paths = [
+        package / "SKILL.md",
+        package / "skills" / SKILL_NAME / "SKILL.md",
+    ]
     routes_path = package / "data/routes.yaml"
-    if skill_path.exists():
+    for skill_path in skill_paths:
+        if not skill_path.exists():
+            continue
         skill_text = read_text(skill_path)
         for needle in ["scripts/self_evolve.py", "references/self-evolution-harness.md"]:
             if needle not in skill_text:
-                add(findings, "error", f"SKILL.md missing self-evolution reference: {needle}")
+                add(findings, "error", f"{safe_relative(skill_path, package.parent)} missing self-evolution reference: {needle}")
+        dissatisfaction_needles = ["用户不满意", "GitHub lesson issue", "不因为用户不满意就把主任务改路由"]
+        for needle in dissatisfaction_needles:
+            if needle not in skill_text:
+                add(
+                    findings,
+                    "error",
+                    f"{safe_relative(skill_path, package.parent)} missing dissatisfaction lesson issue prompt rule: {needle}",
+                )
     if routes_path.exists():
         routes_text = read_text(routes_path)
         learn_block = parse_route_blocks(routes_text).get("learn", "")
@@ -413,6 +459,15 @@ def check_self_evolution_harness(package: Path, findings: list[Finding]) -> None
             add(findings, "error", "learn route missing /self-evolve alias")
         if "references/self-evolution-harness.md" not in learn_block:
             add(findings, "error", "learn route missing references/self-evolution-harness.md")
+        signals_match = re.search(r"^\s+signals:\s*\[(.*?)\]\s*$", learn_block, re.MULTILINE)
+        learn_signals = signals_match.group(1) if signals_match else ""
+        for forbidden_signal in ["不对", "纠偏"]:
+            if forbidden_signal in learn_signals:
+                add(
+                    findings,
+                    "error",
+                    f"learn route must not use dissatisfaction signal as primary route: {forbidden_signal}",
+                )
 
 
 def run() -> tuple[list[Finding], Path, Path]:
