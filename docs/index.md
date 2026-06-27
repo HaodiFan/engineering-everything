@@ -14,8 +14,8 @@ title: "engineering-everything 自进化驾驶舱"
 | EvoZeus 项目指针 | `~/.evozeus/.projects/HaodiFan/engineering-everything` |
 | Repo | `HaodiFan/engineering-everything` |
 | Visibility | `public` |
-| 当前 Skill 版本 | `v0.10.0` |
-| Wrapper harness 版本 | `v0.2.0` |
+| 当前 Skill 版本 | `v0.11.0` |
+| Wrapper harness 版本 | `v0.3.0` |
 | Wrapper manifest | `.evozeus/wrapper.json` |
 | Wrapper migrations | [`docs/wrapper-migrations/`](wrapper-migrations/) |
 | Changelog | [`CHANGELOG.md`](https://github.com/HaodiFan/engineering-everything/blob/main/CHANGELOG.md) |
@@ -32,6 +32,8 @@ title: "engineering-everything 自进化驾驶舱"
 - 影响程度。
 
 ## 进化规则
+
+`SKILL.md` 的 frontmatter 后第一段必须是 `EvoZeus-wrapper 状态检查`。该状态检查先确认当前 Skill release、wrapper harness version 和 source contract；全部 OK 后，才进入目标 Skill 原本主链路。
 
 Wrapper-managed Skill 的源头发现顺序固定：
 
@@ -57,7 +59,7 @@ python3 scripts/evozeus_wrapper.py harness upgrade-check --target /absolute/path
 python3 scripts/evozeus_wrapper.py harness upgrade --target /absolute/path/to/this-skill --latest-version <wrapper-version> --dry-run --json
 ```
 
-迁移记录写入 `docs/wrapper-migrations/`，并记录 from/to wrapper version、planned files、`SKILL.md` append-only 处理、验证命令和回滚方案。wrapper harness version 的事实源是 `.evozeus/wrapper.json`；Skill release 仍以 GitHub release 和 `CHANGELOG.md` 为准。
+迁移记录写入 `docs/wrapper-migrations/`，并记录 from/to wrapper version、planned files、`SKILL.md` 状态检查处理、append-only 处理、验证命令和回滚方案。wrapper harness version 的事实源是 `.evozeus/wrapper.json`；Skill release 仍以 GitHub release 和 `CHANGELOG.md` 为准。
 
 Design doc 至少回答：
 
@@ -83,5 +85,5 @@ python3 scripts/evozeus_wrapper_preflight.py doctor --repo HaodiFan/engineering-
 python3 scripts/evozeus_wrapper_preflight.py structure
 python3 scripts/evozeus_wrapper_preflight.py version --repo HaodiFan/engineering-everything
 python3 scripts/evozeus_wrapper_preflight.py pr --design-doc docs/designs/<design-doc>.md
-python3 scripts/evozeus_wrapper_preflight.py release --tag v0.10.0 --release-notes release-notes.md
+python3 scripts/evozeus_wrapper_preflight.py release --tag v0.11.0 --release-notes /tmp/engineering-everything-v0.11.0-release-notes.md
 ```

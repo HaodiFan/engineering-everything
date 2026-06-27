@@ -2,7 +2,7 @@
 name: engineering-everything
 description: Use when a task needs engineering-route judgment before choosing product definition, project inheritance, architecture, execution, build, refactor, review, release, organization, automation, or skill-evolution work.
 metadata:
-  version: 0.10.0
+  version: 0.11.0
 ---
 
 # Engineering Everything / 工程化万物

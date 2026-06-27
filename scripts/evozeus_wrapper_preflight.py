@@ -45,6 +45,9 @@ DESIGN_TERMS = [
 ]
 
 SKILL_EVOLUTION_TERMS = [
+    ["EvoZeus-wrapper 状态检查"],
+    ["当前记录版本", "当前 Skill 版本", "Skill release"],
+    ["解决顺序", "解决方法"],
     ["自进化"],
     ["EvoZeus-wrapper"],
     [".evozeus/wrapper.json"],
@@ -255,6 +258,21 @@ def check_terms(text: str, term_groups: list[list[str]], label: str) -> None:
         fail(f"{label} missing required concepts: {', '.join(missing)}")
 
 
+def content_after_frontmatter(text: str) -> str:
+    if not text.startswith("---\n"):
+        return text
+    end = text.find("\n---\n", 4)
+    if end == -1:
+        return text
+    return text[end + len("\n---\n") :]
+
+
+def check_status_prelude(skill_text: str) -> None:
+    content = content_after_frontmatter(skill_text).lstrip()
+    if not content.startswith("## EvoZeus-wrapper 状态检查"):
+        fail("SKILL.md must start with the EvoZeus-wrapper status check after frontmatter")
+
+
 def check_doctor(args: argparse.Namespace) -> None:
     target = Path(args.target).resolve()
     require_command("git")
@@ -381,6 +399,7 @@ def check_structure(args: argparse.Namespace) -> None:
         fail("missing required wrapper files:\n" + "\n".join(f"- {path}" for path in missing))
     skill_text = read_text(target / "SKILL.md")
     check_terms(skill_text, SKILL_EVOLUTION_TERMS, "SKILL.md self-evolution method")
+    check_status_prelude(skill_text)
     ok("structure contains required wrapper files")
 
 

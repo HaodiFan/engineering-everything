@@ -8,15 +8,37 @@ Wrapper harness migrations are recorded under `docs/wrapper-migrations/`. Add th
 
 ### Skill changes
 
-- None yet.
+- Prepared `v0.11.0` wrapper status prelude migration.
 
 ### Feedback / Issues
 
-- None yet.
+- User request: check Skill release, wrapper harness version, source contract, and remediation path before the main Skill flow.
 
 ### Verification
 
-- None yet.
+- See `v0.11.0` verification list below.
+
+## [v0.11.0] - 2026-06-27
+
+### Skill changes
+
+- Upgraded EvoZeus-wrapper harness from `v0.2.0` to `v0.3.0`.
+- Added `EvoZeus-wrapper 状态检查` as the first visible section after root `SKILL.md` frontmatter.
+- Kept the Engineering Everything routing and subskill behavior unchanged.
+
+### Feedback / Issues
+
+- User request: target Skills wrapped by EvoZeus-wrapper must check current Skill release, wrapper harness version, source contract, and remediation path before entering the main Skill flow.
+
+### Verification
+
+- `python3 scripts/skill_doctor.py --json`
+- `python3 scripts/self_evolve.py check --json`
+- `python3 scripts/self_evolve.py doctor --json`
+- `python3 scripts/evozeus_wrapper_preflight.py structure`
+- `python3 scripts/evozeus_wrapper_preflight.py doctor --repo HaodiFan/engineering-everything`
+- `python3 scripts/evozeus_wrapper_preflight.py version --repo HaodiFan/engineering-everything --current-tag v0.11.0`
+- `python3 scripts/evozeus_wrapper_preflight.py release --tag v0.11.0 --release-notes /tmp/engineering-everything-v0.11.0-release-notes.md --skip-gh`
 
 ## [v0.10.0] - 2026-06-27
 

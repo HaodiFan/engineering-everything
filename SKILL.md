@@ -2,8 +2,28 @@
 name: engineering-everything
 description: Use when a task needs engineering-route judgment before choosing product definition, project inheritance, architecture, execution, build, refactor, review, release, organization, automation, or skill-evolution work.
 metadata:
-  version: 0.10.0
+  version: 0.11.0
 ---
+
+## EvoZeus-wrapper 状态检查
+
+执行本 Skill 主链路前，先完成状态检查；只有检查结果为 OK，才继续进入下方原 Skill 流程。
+
+1. Skill release 状态
+   - 当前记录版本：`v0.11.0`
+   - 检查命令：`python3 scripts/evozeus_wrapper_preflight.py version --repo HaodiFan/engineering-everything`
+   - 如果 GitHub latest release 更新：先更新 canonical repo，并确认 runtime install 仍指向 canonical repo。
+   - 如果本地版本领先 GitHub release：先完成 changelog、验证和 `vMAJOR.MINOR.PATCH` release，再把它当作稳定运行版本。
+2. Wrapper harness 状态
+   - 当前 wrapper 版本：`v0.3.0`
+   - 事实源：`.evozeus/wrapper.json`
+   - 检查命令：在 EvoZeus-wrapper repo 运行 `python3 scripts/evozeus_wrapper.py harness upgrade-check --target <this-skill-repo> --latest-version <wrapper-version> --json`
+   - 如果 wrapper 落后：先运行 `harness upgrade --dry-run` 生成迁移方案，再按状态检查前置、其他 wrapper 内容 append-only 的规则迁移。
+3. Source contract 状态
+   - 检查命令：`python3 scripts/evozeus_wrapper_preflight.py doctor --repo HaodiFan/engineering-everything`
+   - 如果 `.evozeus/.projects`、git origin 或 runtime install 不一致：先修复为同一个 canonical repo，再继续。
+
+解决顺序：先修 source contract，再修 wrapper harness，最后处理 Skill release。全部 OK 后，再进入主链路。
 
 # Engineering Everything / 工程化万物
 
@@ -97,8 +117,8 @@ Engineering Everything 是主路由 Skill。它不承载所有场景细节，只
 
 Target repo: `HaodiFan/engineering-everything`
 Visibility: `public`
-Current Skill version: `v0.10.0`
-Wrapper harness version: `v0.2.0`
+Current Skill version: `v0.11.0`
+Wrapper harness version: `v0.3.0`
 
 ## EvoZeus-wrapper
 
@@ -122,11 +142,18 @@ Wrapper harness version: `v0.2.0`
 
 Append-only 迁移规则：
 
-- wrapper 升级只能追加本区缺失内容、`docs/wrapper-migrations/` 迁移记录，或更新 wrapper-managed files；不要重写原 Skill 业务段落。
+- wrapper 升级必须保留 frontmatter 后的状态检查；其他 `SKILL.md` wrapper 内容只能追加本区缺失内容或 migration note，不要重写原 Skill 业务段落。
 - 如果本区已存在，升级时追加 migration note，不改写旧文本。
 - 每次 wrapper 升级必须记录 from/to wrapper version、planned files、验证命令、回滚方案和是否需要人工 merge review。
 - wrapper version 事实源是 `.evozeus/wrapper.json` 的 `wrapper_version`；Skill release 仍以 GitHub release / `CHANGELOG.md` 为准。
 
-Wrapper harness version: `v0.2.0`
+Wrapper harness version: `v0.3.0`
 Wrapper manifest: `.evozeus/wrapper.json`
 Wrapper migration log: `docs/wrapper-migrations/`
+
+### Wrapper migration note - 2026-06-27
+
+- From wrapper version: `v0.2.0`
+- To wrapper version: `v0.3.0`
+- `SKILL.md` handling: added `EvoZeus-wrapper 状态检查` immediately after frontmatter, refreshed wrapper-owned version records, and kept Engineering Everything business routing rules unchanged.
+- Migration record: `docs/wrapper-migrations/2026-06-27-v0.2.0-to-v0.3.0.md`
