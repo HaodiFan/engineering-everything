@@ -2,7 +2,7 @@
 name: engineering-everything
 description: Use when a task needs engineering-route judgment before choosing product definition, project inheritance, architecture, execution, build, refactor, review, release, organization, automation, or skill-evolution work.
 metadata:
-  version: 0.11.0
+  version: 0.12.0
 ---
 
 # Engineering Everything / 工程化万物
@@ -11,28 +11,13 @@ Engineering Everything 是主路由 Skill。它不承载所有场景细节，只
 
 ## 使用原则
 
+新会话推荐先用 `$using-engineering-everything` 进入 bootloader；`$engineering-everything` 仍可作为直达主路由。
+
 先判断，再行动。不要在路由未明时直接写代码、重构、补架构或编造业务需求。
 
 用户不满意是全局捕获信号，不是 Learn 主路由。只要用户在使用 Engineering Everything 时表达否定、纠偏或不满意（如“不对”“不是”“这部分好乱”“你没有参考”“方案不行”），agent 必须先承认具体偏差，并主动询问是否要把这次纠偏创建为 GitHub lesson issue；用户确认后再按 issue-first 流程处理，不能默认直接写 `lessons.md`。当前任务仍按原本命中的工程路由继续，不因为用户不满意就把主任务改路由到 `engineering-skill-evolution`。
 
-规划类回答使用统一模板：
-
-```text
-工程路由: <主路由 | 命中场景 | 决策层>
-当前阶段: <P POC/Spike | 0 想法 | 1 需求澄清 | 2 Spec | 3 架构 | 4 脚手架 | 5 Feature 规划 | 6 实现 | 7 验证 | 8 PR/发布 | 9 维护 | I 接手盘点>
-项目形态: <Web+Backend | Desktop+Local Agent | Python Agent/CLI | Library/SDK | Full-stack Monorepo | Non-software Project | Organization System | Unknown>
-参考依据:
-- 路由规则: <命中的 SKILL.md 子 Skill 路由或不可突破规则>
-- 已读 reference: <path -> 具体用于哪个判断>
-- 外部/历史依据: <如使用 web / memory / repo 文件，说明来源和用途；未使用则写未使用>
-缺失内容:
-下一步 3 个动作:
-要创建/更新的文件:
-验证门禁:
-停止条件:
-```
-
-规划类回答不能只说“用了 Engineering Everything”。必须把关键判断和已读取的 reference 对上，至少覆盖路由、阶段、项目形态、验证门禁这 4 类判断；未读取的候选 reference 不要伪装成依据。
+规划类回答必须使用 `references/output-contracts.md` 的规划 / 路由输出契约。不能只说“用了 Engineering Everything”；必须把关键判断和已读取的 reference 对上，至少覆盖路由、阶段、项目形态、验证门禁这 4 类判断。未读取的候选 reference 不要伪装成依据。
 
 执行类回答收尾必须包含：变更文件 / 已运行验证 / 未运行检查及原因 / 剩余风险。
 
@@ -66,5 +51,6 @@ Engineering Everything 是主路由 Skill。它不承载所有场景细节，只
 ## References
 
 - 源仓库的 `data/routes.yaml` 是机器可读路由 seed。
+- `references/output-contracts.md` 是规划、执行、review 和 eval 输出契约。
 - 源仓库的旧版 route map 仅作为 legacy/source 校准；运行时 route seed 已指向子 skill。
 - 源仓库的 `references/self-evolution-harness.md` 定义 GitHub lesson issue-first 的自进化门禁。

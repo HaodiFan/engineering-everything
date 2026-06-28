@@ -1,7 +1,7 @@
 {
   "name": "engineering-everything",
-  "version": "0.11.0",
-  "description": "Engineering-route skills for product definition, project inheritance, architecture, execution, verification, refactoring, release, organization systems, automation, and skill evolution.",
+  "version": "0.12.0",
+  "description": "Bootloader and engineering-route skills for product definition, project inheritance, architecture, execution, verification, refactoring, release, organization systems, automation, and skill evolution.",
   "author": {
     "name": "Anthony Fan",
     "url": "https://github.com/HaodiFan"
@@ -21,8 +21,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Engineering Everything",
-    "shortDescription": "工程化万物：主路由 + 场景子 Skill",
-    "longDescription": "Route creative and engineering work into focused skills for project inheritance, product definition, architecture, execution, verification, refactoring, release, organization systems, automation playbooks, and skill evolution.",
+    "shortDescription": "工程化万物：bootloader + 主路由 + 场景子 Skill",
+    "longDescription": "Start with a bootloader, then route creative and engineering work into focused skills for project inheritance, product definition, architecture, execution, verification, refactoring, release, organization systems, automation playbooks, and skill evolution.",
     "developerName": "Anthony Fan",
     "category": "Developer Tools",
     "capabilities": [
@@ -31,7 +31,7 @@
       "Write"
     ],
     "defaultPrompt": [
-      "用 Engineering Everything 先判断工程路由，再选择对应子 skill。",
+      "使用 $using-engineering-everything 启动 Engineering Everything，先判断工程路由，再选择对应子 skill。",
       "我接手了一个已有项目，先帮我盘点现状。"
     ],
     "websiteURL": "https://github.com/HaodiFan/engineering-everything",

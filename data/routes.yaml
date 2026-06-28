@@ -2,62 +2,98 @@
 routes:
   - id: product
     skill: engineering-product-definition
+    priority: 50
+    direct_call_allowed: true
     aliases: ["/spec", "/define", "/prd"]
     signals: ["想法", "需求", "PRD", "做个系统", "用户场景"]
     fuzzy_examples:
       - "我有个想法，先帮我判断怎么定义需求"
     stages: ["0", "1", "2"]
+    conflicts: ["architecture", "execution-plan", "build"]
+    fallback: execution-plan
+    handoff_to: ["architecture", "execution-plan"]
+    eval_cases: ["route-before-building", "no-spec-no-architecture"]
     references:
       - skills/engineering-product-definition/references/stage-playbook.md
       - skills/engineering-product-definition/references/checklists.md
       - skills/engineering-product-definition/references/spec-templates.md
   - id: architecture
     skill: engineering-architecture-design
+    priority: 60
+    direct_call_allowed: true
     aliases: ["/arch", "/scaffold", "/new-project"]
     signals: ["技术栈", "架构", "选型", "从 0 搭", "starter"]
     fuzzy_examples:
       - "我要从 0 搭一个项目，技术栈怎么选"
     stages: ["3", "4"]
+    conflicts: ["product", "build", "automation"]
+    fallback: product
+    handoff_to: ["execution-plan", "build"]
+    eval_cases: ["route-before-building", "no-spec-no-architecture"]
     references:
       - skills/engineering-architecture-design/references/architecture-cases.md
       - skills/engineering-architecture-design/references/project-blueprints.md
   - id: inherit
     skill: engineering-project-inheritance
+    priority: 10
+    direct_call_allowed: true
     aliases: ["/handover", "/audit", "/inherit"]
     signals: ["接手", "老项目", "现有项目", "继续迭代"]
     fuzzy_examples:
       - "我接手了一个旧项目，先帮我看怎么继续"
     stages: ["I"]
+    conflicts: ["refactor", "build", "review-release"]
+    fallback: product
+    handoff_to: ["review-release", "refactor", "execution-plan"]
+    eval_cases: ["session-resume"]
     references:
       - skills/engineering-project-inheritance/references/inheriting-projects.md
   - id: execution-plan
     skill: engineering-execution-planning
+    priority: 70
+    direct_call_allowed: true
     aliases: ["/plan", "/split"]
     signals: ["怎么拆", "implementation plan", "feature 规划"]
     fuzzy_examples:
       - "这个功能怎么拆成可执行计划"
     stages: ["5"]
+    conflicts: ["product", "build"]
+    fallback: product
+    handoff_to: ["build", "review-release"]
+    eval_cases: ["route-before-building"]
     references:
       - skills/engineering-execution-planning/references/execution-pipeline.md
       - skills/engineering-execution-planning/references/checklists.md
   - id: build
     skill: engineering-build-verify
+    priority: 20
+    direct_call_allowed: true
     aliases: ["/build", "/fix", "/migrate"]
     signals: ["实现", "修 bug", "迁移", "写代码", "接接口"]
     fuzzy_examples:
       - "帮我实现这个功能并跑验证"
     stages: ["6"]
+    conflicts: ["product", "architecture", "refactor"]
+    fallback: execution-plan
+    handoff_to: ["review-release"]
+    eval_cases: ["route-before-building"]
     references:
       - skills/engineering-build-verify/references/stage-playbook.md
       - skills/engineering-build-verify/references/execution-pipeline.md
       - skills/engineering-build-verify/references/agent-operating-standards.md
   - id: refactor
     skill: engineering-refactoring
+    priority: 30
+    direct_call_allowed: true
     aliases: ["/refactor", "/cleanup", "/modularize"]
     signals: ["重构", "清理", "模块化", "重命名", "技术债", "refactor", "cleanup"]
     fuzzy_examples:
       - "这个模块太乱，帮我按行为保持方式重构"
     stages: ["9"]
+    conflicts: ["build", "inherit"]
+    fallback: inherit
+    handoff_to: ["review-release"]
+    eval_cases: ["no-validation-no-refactor", "session-resume"]
     references:
       - skills/engineering-refactoring/references/stage-playbook.md
       - skills/engineering-refactoring/references/refactoring-rules.md
@@ -65,83 +101,131 @@ routes:
       - skills/engineering-refactoring/references/execution-pipeline.md
   - id: review-release
     skill: engineering-review-release
+    priority: 80
+    direct_call_allowed: true
     aliases: ["/test", "/review", "/ship", "/release"]
     signals: ["review", "PR", "merge", "release", "发布"]
     fuzzy_examples:
       - "review 这个 PR，判断能不能 merge"
     stages: ["7", "8"]
+    conflicts: ["build", "refactor"]
+    fallback: build
+    handoff_to: ["learn"]
+    eval_cases: ["review-findings-first"]
     references:
       - skills/engineering-review-release/references/code-review-standards.md
       - skills/engineering-review-release/references/checklists.md
       - skills/engineering-review-release/references/execution-pipeline.md
   - id: automation
     skill: engineering-automation-playbooks
+    priority: 40
+    direct_call_allowed: true
     aliases: ["/automation", "/rpa", "/ocr", "/llm"]
     signals: ["RPA", "OCR", "CV", "LLM", "浏览器自动化", "数据分析", "报表", "POC", "spike"]
     fuzzy_examples:
       - "我要做一个 OCR/LLM/RPA 自动化 POC，先判断技术路线"
     stages: ["P", "3", "5", "6", "7"]
+    conflicts: ["architecture", "build"]
+    fallback: architecture
+    handoff_to: ["execution-plan", "build", "review-release"]
+    eval_cases: ["route-before-building"]
     references:
       - skills/engineering-automation-playbooks/references/scenario-playbooks.md
       - skills/engineering-automation-playbooks/references/architecture-cases-ai.md
       - skills/engineering-automation-playbooks/references/checklists.md
   - id: learn
     skill: engineering-skill-evolution
+    priority: 140
+    direct_call_allowed: true
     aliases: ["/learn", "/lesson", "/pattern", "/self-evolve"]
     signals: ["记住", "记录 lesson", "创建 lesson issue", "以后都这样", "自进化", "升级 skill"]
     fuzzy_examples:
       - "这个规则以后都这样，帮我创建 lesson issue"
     stages: ["8", "9"]
+    conflicts: ["review-release", "refactor"]
+    fallback: review-release
+    handoff_to: ["review-release"]
+    eval_cases: ["dissatisfaction-issue-first"]
     references:
       - skills/engineering-skill-evolution/references/lessons.md
       - skills/engineering-skill-evolution/references/patterns-skill.md
       - skills/engineering-skill-evolution/references/self-evolution-harness.md
   - id: talent
     skill: engineering-organization-systems
+    priority: 90
+    direct_call_allowed: true
     aliases: ["/interview", "/hire", "/scorecard"]
     signals: ["面试", "候选人", "招聘", "JD", "评分卡", "debrief"]
     fuzzy_examples:
       - "我要面试一个后端工程师，帮我设计流程和评分卡"
     stages: ["I", "0", "1", "7"]
+    conflicts: ["organization-system", "project-ops"]
+    fallback: organization-system
+    handoff_to: ["review-release"]
+    eval_cases: ["task-switch-reroute"]
     references:
       - skills/engineering-organization-systems/references/engineering-scenarios.md
   - id: onboarding
     skill: engineering-organization-systems
+    priority: 100
+    direct_call_allowed: true
     aliases: ["/onboard", "/training", "/bootcamp"]
     signals: ["入职", "培训", "企业介绍", "协同机制", "开发机制", "新人"]
     fuzzy_examples:
       - "给新人做入职培训和工程化培训"
     stages: ["0", "1", "6", "7", "8"]
+    conflicts: ["talent", "organization-system"]
+    fallback: organization-system
+    handoff_to: ["project-ops", "review-release"]
+    eval_cases: ["task-switch-reroute"]
     references:
       - skills/engineering-organization-systems/references/engineering-scenarios.md
       - skills/engineering-organization-systems/references/templates-core.md
   - id: organization-system
     skill: engineering-organization-systems
+    priority: 110
+    direct_call_allowed: true
     aliases: ["/org", "/company", "/sop"]
     signals: ["构建组织", "构建企业", "组织机制", "企业机制", "SOP", "流程", "制度", "协同机制"]
     fuzzy_examples:
       - "我要搭一个组织/企业/SOP，按工程方式拆机制和落地路径"
     stages: ["0", "1", "2", "5", "7", "8"]
+    conflicts: ["talent", "onboarding", "project-ops"]
+    fallback: product
+    handoff_to: ["project-ops", "review-release"]
+    eval_cases: ["task-switch-reroute"]
     references:
       - skills/engineering-organization-systems/references/engineering-scenarios.md
       - skills/engineering-organization-systems/references/templates-core.md
       - skills/engineering-organization-systems/references/checklists.md
   - id: project-ops
     skill: engineering-organization-systems
+    priority: 120
+    direct_call_allowed: true
     aliases: ["/estimate", "/wbs", "/project"]
     signals: ["非工程项目", "方案", "排期", "人天", "成本估算", "WBS"]
     fuzzy_examples:
       - "帮我把这个非工程项目拆方案、排期、人天和成本"
     stages: ["0", "1", "2", "5", "7", "8"]
+    conflicts: ["organization-system", "non-software-development"]
+    fallback: product
+    handoff_to: ["review-release"]
+    eval_cases: ["task-switch-reroute"]
     references:
       - skills/engineering-organization-systems/references/engineering-scenarios.md
   - id: non-software-development
     skill: engineering-organization-systems
+    priority: 130
+    direct_call_allowed: true
     aliases: ["/artifact", "/nonsoftware", "/workspace"]
     signals: ["文件输出", "Skill 开发", "多维表", "知识库", "目标产出物"]
     fuzzy_examples:
       - "我要做一个多维表/文件输出/Skill 开发项目，按工程方式组织"
     stages: ["0", "1", "2", "3", "4", "5", "7"]
+    conflicts: ["project-ops", "organization-system", "learn"]
+    fallback: product
+    handoff_to: ["execution-plan", "review-release"]
+    eval_cases: ["task-switch-reroute"]
     references:
       - skills/engineering-organization-systems/references/engineering-scenarios.md
       - skills/engineering-organization-systems/references/spec-templates.md

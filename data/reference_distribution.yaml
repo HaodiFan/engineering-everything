@@ -1,0 +1,172 @@
+canonical_root: references
+entries:
+  - source: agent-operating-standards.md
+    mode: exact-copy
+    targets:
+      - engineering-build-verify
+  - source: app-for-agent-design-paradigm.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+  - source: architecture-cases-ai.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+      - engineering-automation-playbooks
+  - source: architecture-cases.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+      - engineering-automation-playbooks
+  - source: checklists.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+      - engineering-automation-playbooks
+      - engineering-build-verify
+      - engineering-execution-planning
+      - engineering-organization-systems
+      - engineering-product-definition
+      - engineering-refactoring
+      - engineering-review-release
+  - source: code-review-standards.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+      - engineering-automation-playbooks
+      - engineering-build-verify
+      - engineering-execution-planning
+      - engineering-organization-systems
+      - engineering-product-definition
+      - engineering-project-inheritance
+      - engineering-refactoring
+      - engineering-review-release
+  - source: codex-tools.md
+    mode: exact-copy
+    targets:
+      - using-engineering-everything
+  - source: engineering-scenario-map.md
+    status: legacy
+    owner: root-route-map
+    targets: []
+  - source: engineering-scenarios.md
+    mode: exact-copy
+    targets:
+      - engineering-organization-systems
+  - source: execution-pipeline.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+      - engineering-automation-playbooks
+      - engineering-build-verify
+      - engineering-execution-planning
+      - engineering-organization-systems
+      - engineering-product-definition
+      - engineering-project-inheritance
+      - engineering-refactoring
+      - engineering-review-release
+  - source: inheriting-projects.md
+    mode: exact-copy
+    targets:
+      - engineering-project-inheritance
+  - source: lessons.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+      - engineering-automation-playbooks
+      - engineering-build-verify
+      - engineering-everything
+      - engineering-execution-planning
+      - engineering-organization-systems
+      - engineering-product-definition
+      - engineering-project-inheritance
+      - engineering-refactoring
+      - engineering-review-release
+      - engineering-skill-evolution
+  - source: memory-bank-guide.md
+    status: canonical
+    owner: root-reference-library/governance-memory-bank
+    targets: []
+  - source: output-contracts.md
+    mode: exact-copy
+    targets:
+      - engineering-everything
+      - using-engineering-everything
+  - source: patterns-skill.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+      - engineering-automation-playbooks
+      - engineering-build-verify
+      - engineering-everything
+      - engineering-execution-planning
+      - engineering-organization-systems
+      - engineering-product-definition
+      - engineering-project-inheritance
+      - engineering-refactoring
+      - engineering-review-release
+      - engineering-skill-evolution
+  - source: project-blueprints.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+  - source: prompts-guide.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+      - engineering-automation-playbooks
+      - engineering-build-verify
+      - engineering-execution-planning
+      - engineering-organization-systems
+      - engineering-product-definition
+      - engineering-project-inheritance
+      - engineering-refactoring
+      - engineering-review-release
+      - engineering-skill-evolution
+  - source: psps-framework.md
+    mode: exact-copy
+    targets:
+      - engineering-product-definition
+  - source: refactoring-rules.md
+    mode: exact-copy
+    targets:
+      - engineering-refactoring
+  - source: route-contract.md
+    mode: exact-copy
+    targets:
+      - using-engineering-everything
+  - source: scenario-playbooks.md
+    mode: exact-copy
+    targets:
+      - engineering-automation-playbooks
+  - source: self-evolution-harness.md
+    mode: exact-copy
+    targets:
+      - engineering-everything
+      - engineering-skill-evolution
+  - source: spec-templates.md
+    mode: exact-copy
+    targets:
+      - engineering-organization-systems
+      - engineering-product-definition
+  - source: stage-playbook.md
+    mode: exact-copy
+    targets:
+      - engineering-build-verify
+      - engineering-execution-planning
+      - engineering-product-definition
+      - engineering-refactoring
+      - engineering-review-release
+  - source: templates-core.md
+    mode: exact-copy
+    targets:
+      - engineering-organization-systems
+  - source: templates-governance.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+  - source: templates-specs.md
+    mode: exact-copy
+    targets:
+      - engineering-organization-systems
+      - engineering-product-definition

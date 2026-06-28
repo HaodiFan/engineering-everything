@@ -14,7 +14,7 @@ title: "engineering-everything 自进化驾驶舱"
 | EvoZeus 项目指针 | `~/.evozeus/.projects/HaodiFan/engineering-everything` |
 | Repo | `HaodiFan/engineering-everything` |
 | Visibility | `public` |
-| 当前 Skill 版本 | `v0.11.0` |
+| 当前 Skill 版本 | `v0.12.0` |
 | Wrapper harness 版本 | `v0.3.0` |
 | Wrapper manifest | `.evozeus/wrapper.json` |
 | Wrapper migrations | [`docs/wrapper-migrations/`](wrapper-migrations/) |
@@ -85,5 +85,5 @@ python3 scripts/evozeus_wrapper_preflight.py doctor --repo HaodiFan/engineering-
 python3 scripts/evozeus_wrapper_preflight.py structure
 python3 scripts/evozeus_wrapper_preflight.py version --repo HaodiFan/engineering-everything
 python3 scripts/evozeus_wrapper_preflight.py pr --design-doc docs/designs/<design-doc>.md
-python3 scripts/evozeus_wrapper_preflight.py release --tag v0.11.0 --release-notes /tmp/engineering-everything-v0.11.0-release-notes.md
+python3 scripts/evozeus_wrapper_preflight.py release --tag v0.12.0 --release-notes /tmp/engineering-everything-v0.12.0-release-notes.md
 ```

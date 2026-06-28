@@ -6,26 +6,19 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 
 SKILL_NAME = "engineering-everything"
+USING_SKILL_NAME = "using-engineering-everything"
 OLD_SKILL_NAMES = ["software-dev-workflow", "cto-copilot-skill"]
 MAX_SKILL_LINES = 200
-REQUIRED_LIBRARY_SKILLS = {
+BASE_LIBRARY_SKILLS = {
     SKILL_NAME,
-    "engineering-architecture-design",
-    "engineering-automation-playbooks",
-    "engineering-build-verify",
-    "engineering-execution-planning",
-    "engineering-organization-systems",
-    "engineering-product-definition",
-    "engineering-project-inheritance",
-    "engineering-refactoring",
-    "engineering-review-release",
-    "engineering-skill-evolution",
+    USING_SKILL_NAME,
 }
 
 
@@ -85,6 +78,20 @@ def parse_yaml_scalar(text: str, key: str) -> str | None:
     return match.group(1).strip().strip('"')
 
 
+def parse_inline_strings(block: str, key: str) -> list[str]:
+    match = re.search(rf"^\s+{re.escape(key)}:\s*\[(.*?)\]\s*$", block, re.MULTILINE)
+    if not match:
+        return []
+    return re.findall(r'"([^"]+)"', match.group(1))
+
+
+def parse_route_scalar(block: str, key: str) -> str | None:
+    match = re.search(rf"^\s+{re.escape(key)}:\s*([^\s#]+)\s*$", block, re.MULTILINE)
+    if not match:
+        return None
+    return match.group(1).strip().strip('"')
+
+
 def add(findings: list[Finding], level: str, message: str) -> None:
     findings.append(Finding(level, message))
 
@@ -131,24 +138,44 @@ def check_required_files(root: Path, package: Path, findings: list[Finding]) -> 
         package / "SKILL.md",
         package / ".codex-plugin/plugin.json",
         package / "skills/engineering-everything/SKILL.md",
+        package / "skills/using-engineering-everything/SKILL.md",
         package / "skills/engineering-project-inheritance/SKILL.md",
         package / "skills/engineering-project-inheritance/references/inheriting-projects.md",
         package / "agents/openai.yaml",
         package / "scripts/install.py",
         package / "scripts/skill_doctor.py",
+        package / "scripts/sync_references.py",
+        package / "scripts/eval_scenarios.py",
         package / "scripts/lesson.py",
         package / "scripts/self_evolve.py",
         package / "schemas/lesson.schema.json",
         package / "schemas/pattern.schema.json",
         package / "data/routes.yaml",
+        package / "data/reference_distribution.yaml",
         package / "data/review_roles.yaml",
         package / "data/validation_commands.yaml",
+        package / "docs/testing.md",
         package / "references/engineering-scenarios.md",
         package / "references/engineering-scenario-map.md",
+        package / "references/output-contracts.md",
+        package / "references/route-contract.md",
+        package / "references/codex-tools.md",
         package / "references/psps-framework.md",
         package / "references/refactoring-rules.md",
         package / "references/self-evolution-harness.md",
     ]
+    required.extend(sorted((package / "evals/scenarios").glob("*.md")))
+    required.extend(
+        [
+            package / "evals/scenarios/route-before-building.md",
+            package / "evals/scenarios/no-spec-no-architecture.md",
+            package / "evals/scenarios/no-validation-no-refactor.md",
+            package / "evals/scenarios/dissatisfaction-issue-first.md",
+            package / "evals/scenarios/review-findings-first.md",
+            package / "evals/scenarios/session-resume.md",
+            package / "evals/scenarios/task-switch-reroute.md",
+        ]
+    )
     if not is_installed_layout(root, package):
         required.insert(0, root / "README.md")
     for path in required:
@@ -186,8 +213,8 @@ def check_one_skill_metadata(
     line_count = len(text.splitlines())
     if line_count > MAX_SKILL_LINES:
         add(findings, "error", f"{safe_relative(path, root)} has {line_count} lines; soft limit is {MAX_SKILL_LINES}")
-    if expected_name == SKILL_NAME and "工程路由:" not in text:
-        add(findings, "error", f"{safe_relative(path, root)} must include the engineering route output field")
+    if expected_name == SKILL_NAME and "references/output-contracts.md" not in text and "工程路由:" not in text:
+        add(findings, "error", f"{safe_relative(path, root)} must reference the engineering output contract")
     return version
 
 
@@ -212,7 +239,8 @@ def check_plugin_manifest(root: Path, package: Path, version: str | None, findin
 def check_skill_library(root: Path, package: Path, version: str | None, findings: list[Finding]) -> None:
     packages = skill_packages(package)
     names = [path.name for path in packages]
-    for required in sorted(REQUIRED_LIBRARY_SKILLS - set(names)):
+    required_skills = BASE_LIBRARY_SKILLS | route_skill_names(package)
+    for required in sorted(required_skills - set(names)):
         add(findings, "error", f"missing library skill: skills/{required}/SKILL.md")
     if len(names) != len(set(names)):
         add(findings, "error", "duplicate skill package names in skills/")
@@ -242,8 +270,8 @@ def check_agent_manifest(package: Path, version: str | None, findings: list[Find
     manifest_version = parse_yaml_scalar(text, "version")
     if version and manifest_version != version:
         add(findings, "error", f"agents/openai.yaml version {manifest_version} != SKILL.md {version}")
-    if f"${SKILL_NAME}" not in text:
-        add(findings, "error", "agents/openai.yaml default_prompt must use the current trigger")
+    if f"${SKILL_NAME}" not in text and f"${USING_SKILL_NAME}" not in text:
+        add(findings, "error", "agents/openai.yaml default_prompt must use the bootloader or direct router trigger")
 
 
 def check_readme(root: Path, version: str | None, findings: list[Finding]) -> None:
@@ -252,19 +280,28 @@ def check_readme(root: Path, version: str | None, findings: list[Finding]) -> No
         return
     text = read_text(path)
     required = [
+        f"${USING_SKILL_NAME}",
         f"${SKILL_NAME}",
+        f"~/.codex/skills/{USING_SKILL_NAME}",
         f"~/.codex/skills/{SKILL_NAME}",
+        f"~/.agents/skills/{USING_SKILL_NAME}",
         f"~/.agents/skills/{SKILL_NAME}",
         "~/.codex/skills/engineering-project-inheritance",
         "~/.agents/skills/engineering-project-inheritance",
         ".codex-plugin/plugin.json",
         "skills/engineering-everything/SKILL.md",
+        "skills/using-engineering-everything/SKILL.md",
         "skills/engineering-project-inheritance/SKILL.md",
         "python3 scripts/install.py",
+        "python3 scripts/install.py list",
         "--layout legacy",
+        "scripts/sync_references.py",
+        "scripts/eval_scenarios.py",
+        "docs/testing.md",
         "scripts/self_evolve.py",
         "references/psps-framework.md",
         "references/refactoring-rules.md",
+        "references/output-contracts.md",
         "references/self-evolution-harness.md",
     ]
     for needle in required:
@@ -322,11 +359,21 @@ def parse_route_blocks(text: str) -> dict[str, str]:
     return blocks
 
 
+def route_skill_names(package: Path) -> set[str]:
+    path = package / "data/routes.yaml"
+    if not path.exists():
+        return set()
+    skills = re.findall(r"^\s+skill:\s*([a-z0-9-]+)\s*$", read_text(path), re.MULTILINE)
+    return set(skills)
+
+
+def eval_scenario_ids(package: Path) -> set[str]:
+    scenarios_dir = package / "evals/scenarios"
+    return {path.stem for path in scenarios_dir.glob("*.md")} if scenarios_dir.exists() else set()
+
+
 def parse_aliases(block: str) -> list[str]:
-    match = re.search(r"^\s+aliases:\s*\[(.*?)\]\s*$", block, re.MULTILINE)
-    if not match:
-        return []
-    return re.findall(r'"([^"]+)"', match.group(1))
+    return parse_inline_strings(block, "aliases")
 
 
 def check_route_seeds(package: Path, findings: list[Finding]) -> None:
@@ -364,7 +411,44 @@ def check_route_seeds(package: Path, findings: list[Finding]) -> None:
         add(findings, "error", f"data/routes.yaml missing required route: {route_id}")
 
     alias_owner: dict[str, str] = {}
+    scenario_ids = eval_scenario_ids(package)
+    route_ids = set(blocks)
+    required_contract_fields = [
+        "priority",
+        "direct_call_allowed",
+        "aliases",
+        "signals",
+        "fuzzy_examples",
+        "stages",
+        "references",
+        "conflicts",
+        "fallback",
+        "handoff_to",
+        "eval_cases",
+    ]
     for route_id, block in blocks.items():
+        for field in required_contract_fields:
+            if re.search(rf"^\s+{re.escape(field)}:", block, re.MULTILINE) is None:
+                add(findings, "error", f"route {route_id} missing contract field: {field}")
+        priority = parse_route_scalar(block, "priority")
+        if priority is not None and not priority.isdigit():
+            add(findings, "error", f"route {route_id} priority must be an integer")
+        direct_call = parse_route_scalar(block, "direct_call_allowed")
+        if direct_call is not None and direct_call not in {"true", "false"}:
+            add(findings, "error", f"route {route_id} direct_call_allowed must be true or false")
+        fallback = parse_route_scalar(block, "fallback")
+        if fallback and fallback not in route_ids:
+            add(findings, "error", f"route {route_id} fallback points to unknown route: {fallback}")
+        for key in ["conflicts", "handoff_to"]:
+            for linked_route in parse_inline_strings(block, key):
+                if linked_route not in route_ids:
+                    add(findings, "error", f"route {route_id} {key} points to unknown route: {linked_route}")
+        eval_cases = parse_inline_strings(block, "eval_cases")
+        if not eval_cases:
+            add(findings, "error", f"route {route_id} must define eval_cases")
+        for eval_case in eval_cases:
+            if eval_case not in scenario_ids:
+                add(findings, "error", f"route {route_id} eval_case points to missing scenario: {eval_case}")
         aliases = parse_aliases(block)
         if not aliases:
             add(findings, "error", f"route {route_id} must define slash aliases")
@@ -400,6 +484,28 @@ def check_route_seeds(package: Path, findings: list[Finding]) -> None:
                         "error",
                         f"route {route_id} reference {reference} must live under {expected_prefix}",
                     )
+
+
+def run_local_gate(package: Path, command: list[str], label: str, findings: list[Finding]) -> None:
+    if not (package / command[0]).exists():
+        add(findings, "error", f"{label} script missing: {command[0]}")
+        return
+    proc = subprocess.run(
+        [sys.executable, *command],
+        cwd=package,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode:
+        output = (proc.stdout + proc.stderr).strip().splitlines()
+        detail = output[0] if output else f"exit code {proc.returncode}"
+        add(findings, "error", f"{label} failed: {detail}")
+
+
+def check_contract_gates(package: Path, findings: list[Finding]) -> None:
+    run_local_gate(package, ["scripts/sync_references.py", "--check", "--json"], "reference distribution gate", findings)
+    run_local_gate(package, ["scripts/eval_scenarios.py", "validate", "--json"], "eval scenario gate", findings)
 
 
 def check_old_names(root: Path, package: Path, findings: list[Finding]) -> None:
@@ -486,6 +592,7 @@ def run() -> tuple[list[Finding], Path, Path]:
     check_markdown(package, findings)
     check_reference_links(package, findings)
     check_route_seeds(package, findings)
+    check_contract_gates(package, findings)
     check_old_names(root, package, findings)
     check_json_schemas(package, findings)
     check_self_evolution_harness(package, findings)

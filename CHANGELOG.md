@@ -8,15 +8,39 @@ Wrapper harness migrations are recorded under `docs/wrapper-migrations/`. Add th
 
 ### Skill changes
 
-- Prepared `v0.11.0` wrapper status prelude migration.
+- None yet.
+
+## [v0.12.0] - 2026-06-28
+
+### Skill changes
+
+- Added `using-engineering-everything` as a bootloader skill for new sessions, resume handling, and task-switch rerouting.
+- Added canonical output contracts, route contract notes, and Codex tool boundary references.
+- Added `data/reference_distribution.yaml` plus `scripts/sync_references.py` to prevent reference drift and orphan runtime copies.
+- Added behavior-eval scenario schemas under `evals/scenarios/` plus `scripts/eval_scenarios.py`.
+- Extended `data/routes.yaml` with route contract fields: priority, conflicts, fallback, handoff, direct-call permission, and eval coverage.
+- Hardened `scripts/install.py` with list/relink/uninstall lifecycle actions and symlink-safe removal.
+- Extended `scripts/skill_doctor.py` to validate bootloader structure, route contracts, reference distribution, and eval scenario schemas.
 
 ### Feedback / Issues
 
-- User request: check Skill release, wrapper harness version, source contract, and remediation path before the main Skill flow.
+- User request: learn from `obra/superpowers` plugin/skill structure and refactor Engineering Everything into a clearer AgentOS bootloader + router + subskill system.
 
 ### Verification
 
-- See `v0.11.0` verification list below.
+- `python3 scripts/sync_references.py --check --json`
+- `python3 scripts/eval_scenarios.py validate --json`
+- `python3 scripts/skill_doctor.py --json`
+- `python3 scripts/self_evolve.py check --json`
+- `python3 scripts/lesson.py validate`
+- `python3 -m unittest discover -s tests`
+- `python3 -m py_compile scripts/*.py`
+
+### Release notes
+
+- Non-breaking minor release: `$engineering-everything` remains valid, while `$using-engineering-everything` becomes the recommended bootloader entry.
+- SessionStart hook remains deferred.
+- License remains `UNLICENSED`; public distribution positioning still requires owner decision.
 
 ## [v0.11.0] - 2026-06-27
 
