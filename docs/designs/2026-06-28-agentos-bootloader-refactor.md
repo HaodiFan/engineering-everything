@@ -1,5 +1,7 @@
 # 对内-未审核-Engineering Everything AgentOS Bootloader 重构设计
 
+> Update 2026-06-28: root `SKILL.md` 已由 `2026-06-28-root-skill-demotion.md` 设计退场；本文件中 root entry 相关描述仅保留为 v0.12.0 历史背景。
+
 ## Related issue
 
 - Issue: direct owner request in Codex thread.

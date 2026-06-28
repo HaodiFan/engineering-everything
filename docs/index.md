@@ -10,7 +10,8 @@ title: "engineering-everything 自进化驾驶舱"
 
 | 项目 | 内容 |
 | --- | --- |
-| Skill | [`SKILL.md`](https://github.com/HaodiFan/engineering-everything/blob/main/SKILL.md) |
+| Plugin manifest | [`.codex-plugin/plugin.json`](https://github.com/HaodiFan/engineering-everything/blob/main/.codex-plugin/plugin.json) |
+| Runtime skills | [`skills/`](https://github.com/HaodiFan/engineering-everything/tree/main/skills) |
 | EvoZeus 项目指针 | `~/.evozeus/.projects/HaodiFan/engineering-everything` |
 | Repo | `HaodiFan/engineering-everything` |
 | Visibility | `public` |
@@ -33,7 +34,7 @@ title: "engineering-everything 自进化驾驶舱"
 
 ## 进化规则
 
-`SKILL.md` 的 frontmatter 后第一段必须是 `EvoZeus-wrapper 状态检查`。该状态检查先确认当前 Skill release、wrapper harness version 和 source contract；全部 OK 后，才进入目标 Skill 原本主链路。
+本仓库采用 plugin-first 结构：运行时入口只来自 `skills/*/SKILL.md`，repo root 不再保留 `SKILL.md`。EvoZeus-wrapper 状态检查由 `.codex-plugin/plugin.json`、`WRAPPER.md`、`docs/index.md` 和 `references/self-evolution-harness.md` 承载。
 
 Wrapper-managed Skill 的源头发现顺序固定：
 
@@ -50,7 +51,7 @@ python3 scripts/evozeus_wrapper_preflight.py doctor --repo HaodiFan/engineering-
 python3 scripts/evozeus_wrapper_preflight.py version --repo HaodiFan/engineering-everything
 ```
 
-每次 Skill 更新必须先写 design doc，再开 PR。根目录 `SKILL.md` 是 repo 化后的可运行入口；`~/.evozeus/.projects/HaodiFan/engineering-everything` 和 runtime 安装路径应指向同一个 canonical repo，不保留 copied install 作为第二事实源，也不要直接修改 `.codex/skills/...` 或 `.agents/skills/...`。
+每次 Skill 更新必须先写 design doc，再开 PR。`.codex-plugin/plugin.json` 是 package manifest，`skills/*/SKILL.md` 是运行时入口；`~/.evozeus/.projects/HaodiFan/engineering-everything` 和 runtime 安装路径应指向同一个 canonical repo，不保留 copied install 作为第二事实源，也不要直接修改 `.codex/skills/...` 或 `.agents/skills/...`。
 
 EvoZeus-wrapper harness 升级时，不能重写目标 Skill 业务段落。先在 EvoZeus-wrapper repo 里生成迁移方案：
 
@@ -59,7 +60,7 @@ python3 scripts/evozeus_wrapper.py harness upgrade-check --target /absolute/path
 python3 scripts/evozeus_wrapper.py harness upgrade --target /absolute/path/to/this-skill --latest-version <wrapper-version> --dry-run --json
 ```
 
-迁移记录写入 `docs/wrapper-migrations/`，并记录 from/to wrapper version、planned files、`SKILL.md` 状态检查处理、append-only 处理、验证命令和回滚方案。wrapper harness version 的事实源是 `.evozeus/wrapper.json`；Skill release 仍以 GitHub release 和 `CHANGELOG.md` 为准。
+迁移记录写入 `docs/wrapper-migrations/`，并记录 from/to wrapper version、planned files、plugin/library 处理、append-only 处理、验证命令和回滚方案。wrapper harness version 的事实源是 `.evozeus/wrapper.json`；Skill release 仍以 GitHub release 和 `CHANGELOG.md` 为准。
 
 Design doc 至少回答：
 

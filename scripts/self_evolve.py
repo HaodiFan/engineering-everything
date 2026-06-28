@@ -82,22 +82,43 @@ def check_harness_reference(package: Path, findings: list[Finding]) -> None:
 
 
 def check_skill_router(package: Path, findings: list[Finding]) -> None:
-    path = package / "SKILL.md"
-    if not path.exists():
-        add(findings, "error", "missing SKILL.md")
-        return
-    text = read_text(path)
-    line_count = len(text.splitlines())
-    if line_count > MAX_SKILL_LINES:
-        add(findings, "error", f"SKILL.md has {line_count} lines; max is {MAX_SKILL_LINES}")
-    for needle in [
-        "scripts/self_evolve.py check",
-        "references/self-evolution-harness.md",
-        "references/lessons.md",
-        "references/patterns-skill.md",
+    root_skill = package / "SKILL.md"
+    if root_skill.exists():
+        add(findings, "error", "root SKILL.md must not exist; plugin runtime skills live under skills/")
+
+    manifest = package / ".codex-plugin/plugin.json"
+    if not manifest.exists():
+        add(findings, "error", "missing .codex-plugin/plugin.json")
+    else:
+        try:
+            data = json.loads(read_text(manifest))
+        except json.JSONDecodeError as exc:
+            add(findings, "error", f"invalid .codex-plugin/plugin.json: {exc}")
+        else:
+            if data.get("skills") != "./skills/":
+                add(findings, "error", ".codex-plugin/plugin.json skills must be ./skills/")
+
+    for relative in [
+        "skills/using-engineering-everything/SKILL.md",
+        "skills/engineering-everything/SKILL.md",
     ]:
-        if needle not in text:
-            add(findings, "error", f"SKILL.md missing {needle}")
+        path = package / relative
+        if not path.exists():
+            add(findings, "error", f"missing {relative}")
+            continue
+        text = read_text(path)
+        line_count = len(text.splitlines())
+        if line_count > MAX_SKILL_LINES:
+            add(findings, "error", f"{relative} has {line_count} lines; max is {MAX_SKILL_LINES}")
+
+    router = package / "skills/engineering-everything/SKILL.md"
+    router_text = read_text(router) if router.exists() else ""
+    for needle in [
+        "references/output-contracts.md",
+        "references/self-evolution-harness.md",
+    ]:
+        if needle not in router_text:
+            add(findings, "error", f"skills/engineering-everything/SKILL.md missing {needle}")
 
 
 def check_route(package: Path, findings: list[Finding]) -> None:

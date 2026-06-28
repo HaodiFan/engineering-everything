@@ -193,6 +193,9 @@ def main() -> int:
     if not destinations:
         print("install: no destinations selected", file=sys.stderr)
         return 1
+    if args.layout == "legacy" and not (source / "SKILL.md").exists():
+        print("install: legacy layout is retired; use the default library layout", file=sys.stderr)
+        return 1
     try:
         for dest in destinations:
             if args.layout == "library":

@@ -11,9 +11,9 @@ from pathlib import Path
 
 
 REQUIRED_FILES = [
-    "SKILL.md",
     "CHANGELOG.md",
     "WRAPPER.md",
+    ".codex-plugin/plugin.json",
     ".evozeus/wrapper.json",
     "docs/index.md",
     "docs/_config.yml",
@@ -25,6 +25,8 @@ REQUIRED_FILES = [
     ".github/pull_request_template.md",
     ".github/workflows/evozeus-wrapper-preflight.yml",
     "scripts/evozeus_wrapper_preflight.py",
+    "skills/using-engineering-everything/SKILL.md",
+    "skills/engineering-everything/SKILL.md",
 ]
 
 ISSUE_TERMS = [
@@ -44,8 +46,7 @@ DESIGN_TERMS = [
     ["release plan", "release", "发布"],
 ]
 
-SKILL_EVOLUTION_TERMS = [
-    ["EvoZeus-wrapper 状态检查"],
+WRAPPER_EVOLUTION_TERMS = [
     ["当前记录版本", "当前 Skill 版本", "Skill release"],
     ["解决顺序", "解决方法"],
     ["自进化"],
@@ -174,6 +175,23 @@ def skill_name_from_skill_md(path: Path) -> str | None:
     return None
 
 
+def load_json_file(path: Path) -> dict:
+    try:
+        return json.loads(read_text(path))
+    except json.JSONDecodeError as exc:
+        fail(f"invalid JSON: {path}: {exc}")
+
+
+def plugin_skill_names(target: Path) -> list[str]:
+    manifest = load_json_file(target / ".codex-plugin" / "plugin.json")
+    if manifest.get("skills") != "./skills/":
+        fail(".codex-plugin/plugin.json skills must be ./skills/")
+    names = [path.parent.name for path in sorted((target / "skills").glob("*/SKILL.md"))]
+    if not names:
+        fail("plugin has no skills under skills/*/SKILL.md")
+    return names
+
+
 def target_canonical_path(target: Path) -> str:
     git_root_result = run_command(["git", "-C", str(target), "rev-parse", "--show-toplevel"])
     if git_root_result.returncode == 0 and git_root_result.stdout.strip():
@@ -265,12 +283,6 @@ def content_after_frontmatter(text: str) -> str:
     if end == -1:
         return text
     return text[end + len("\n---\n") :]
-
-
-def check_status_prelude(skill_text: str) -> None:
-    content = content_after_frontmatter(skill_text).lstrip()
-    if not content.startswith("## EvoZeus-wrapper 状态检查"):
-        fail("SKILL.md must start with the EvoZeus-wrapper status check after frontmatter")
 
 
 def check_doctor(args: argparse.Namespace) -> None:
@@ -368,10 +380,11 @@ def check_wrapper_managed_doctor(
     else:
         ok(f"GitHub repo accessible: {manifest_repo}")
 
-    skill_name = skill_name_from_skill_md(target / "SKILL.md") or target.name
+    skill_names = plugin_skill_names(target)
     install_paths = [
-        Path.home() / ".codex" / "skills" / skill_name,
-        Path.home() / ".agents" / "skills" / skill_name,
+        Path.home() / host / "skills" / skill_name
+        for host in [".codex", ".agents"]
+        for skill_name in skill_names
     ]
     found_install = False
     for install_path in install_paths:
@@ -380,10 +393,11 @@ def check_wrapper_managed_doctor(
         found_install = True
         kind = path_kind(install_path)
         resolved = resolve_path(install_path)
-        if kind == "symlink" and resolved == canonical_path:
-            ok(f"runtime install points to canonical repo: {install_path} -> {resolved}")
+        expected_skill_source = str((Path(canonical_path) / "skills" / install_path.name).resolve())
+        if kind == "symlink" and resolved == expected_skill_source:
+            ok(f"runtime install points to canonical skill: {install_path} -> {resolved}")
         elif kind == "symlink":
-            fail(f"runtime install symlink mismatch: {install_path} -> {resolved}; expected {canonical_path}")
+            fail(f"runtime install symlink mismatch: {install_path} -> {resolved}; expected {expected_skill_source}")
         elif kind == "directory":
             warn(f"runtime install is a real directory copy, not a source of truth: {install_path}")
         else:
@@ -397,10 +411,12 @@ def check_structure(args: argparse.Namespace) -> None:
     missing = [path for path in REQUIRED_FILES if not (target / path).exists()]
     if missing:
         fail("missing required wrapper files:\n" + "\n".join(f"- {path}" for path in missing))
-    skill_text = read_text(target / "SKILL.md")
-    check_terms(skill_text, SKILL_EVOLUTION_TERMS, "SKILL.md self-evolution method")
-    check_status_prelude(skill_text)
-    ok("structure contains required wrapper files")
+    if (target / "SKILL.md").exists():
+        fail("root SKILL.md must not exist in plugin-first structure")
+    plugin_skill_names(target)
+    wrapper_text = read_text(target / "WRAPPER.md") + "\n" + read_text(target / "docs/index.md")
+    check_terms(wrapper_text, WRAPPER_EVOLUTION_TERMS, "wrapper governance docs")
+    ok("structure contains required plugin wrapper files")
 
 
 def check_issue(args: argparse.Namespace) -> None:

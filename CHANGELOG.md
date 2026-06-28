@@ -8,7 +8,14 @@ Wrapper harness migrations are recorded under `docs/wrapper-migrations/`. Add th
 
 ### Skill changes
 
-- None yet.
+- Demoted root `SKILL.md`: runtime entrypoints now live only under `skills/*/SKILL.md`.
+- Updated package, self-evolution, and wrapper preflight gates to use `.codex-plugin/plugin.json` plus the plugin skill library as the package contract.
+- Updated wrapper/dashboard docs to describe plugin-first source governance.
+
+### Version Plan
+
+- Recommended next release: `v0.13.0`.
+- Rationale: package structure changes while runtime behavior remains routed through existing library skills.
 
 ## [v0.12.0] - 2026-06-28
 

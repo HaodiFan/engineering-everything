@@ -38,7 +38,7 @@ def repo_root() -> Path:
 
 
 def skill_dir(root: Path) -> Path:
-    if (root / "SKILL.md").exists():
+    if (root / ".codex-plugin/plugin.json").exists():
         return root
     return root / SKILL_NAME
 
@@ -112,9 +112,6 @@ def skill_packages(package: Path) -> list[Path]:
 
 def markdown_files(package: Path) -> list[Path]:
     files: list[Path] = []
-    root_skill = package / "SKILL.md"
-    if root_skill.exists():
-        files.append(root_skill)
     if (package / "docs").exists():
         files.extend(sorted((package / "docs").glob("**/*.md")))
     if (package / "references").exists():
@@ -135,7 +132,6 @@ def reference_base(path: Path, package: Path) -> Path:
 
 def check_required_files(root: Path, package: Path, findings: list[Finding]) -> None:
     required = [
-        package / "SKILL.md",
         package / ".codex-plugin/plugin.json",
         package / "skills/engineering-everything/SKILL.md",
         package / "skills/using-engineering-everything/SKILL.md",
@@ -184,7 +180,27 @@ def check_required_files(root: Path, package: Path, findings: list[Finding]) -> 
 
 
 def check_skill_metadata(root: Path, package: Path, findings: list[Finding]) -> str | None:
-    return check_one_skill_metadata(root, package, package.name if package.parent.name == "skills" else SKILL_NAME, findings)
+    root_skill = package / "SKILL.md"
+    if root_skill.exists():
+        add(findings, "error", "root SKILL.md must not exist; runtime skills live under skills/")
+    return plugin_manifest_version(package, findings)
+
+
+def plugin_manifest_version(package: Path, findings: list[Finding]) -> str | None:
+    path = package / ".codex-plugin/plugin.json"
+    if not path.exists():
+        add(findings, "error", "missing .codex-plugin/plugin.json")
+        return None
+    try:
+        manifest = json.loads(read_text(path))
+    except json.JSONDecodeError as exc:
+        add(findings, "error", f"invalid plugin manifest: {exc}")
+        return None
+    version = manifest.get("version")
+    if not version or not re.match(r"^\d+\.\d+\.\d+$", str(version)):
+        add(findings, "error", ".codex-plugin/plugin.json version must be semver-like, for example 0.12.0")
+        return None
+    return str(version)
 
 
 def check_one_skill_metadata(
@@ -231,7 +247,7 @@ def check_plugin_manifest(root: Path, package: Path, version: str | None, findin
     if manifest.get("name") != SKILL_NAME:
         add(findings, "error", f".codex-plugin/plugin.json name must be {SKILL_NAME}")
     if version and manifest.get("version") != version:
-        add(findings, "error", f".codex-plugin/plugin.json version {manifest.get('version')} != SKILL.md {version}")
+        add(findings, "error", f".codex-plugin/plugin.json version {manifest.get('version')} != package version {version}")
     if manifest.get("skills") != "./skills/":
         add(findings, "error", ".codex-plugin/plugin.json skills must be ./skills/")
 
@@ -250,7 +266,7 @@ def check_skill_library(root: Path, package: Path, version: str | None, findings
             add(
                 findings,
                 "error",
-                f"{safe_relative(skill_package / 'SKILL.md', root)} version {skill_version} != root SKILL.md {version}",
+                f"{safe_relative(skill_package / 'SKILL.md', root)} version {skill_version} != plugin package version {version}",
             )
         if skill_package.name != SKILL_NAME and not list((skill_package / "references").glob("*.md")):
             add(
@@ -269,7 +285,7 @@ def check_agent_manifest(package: Path, version: str | None, findings: list[Find
         add(findings, "error", f"agents/openai.yaml skill must be {SKILL_NAME}")
     manifest_version = parse_yaml_scalar(text, "version")
     if version and manifest_version != version:
-        add(findings, "error", f"agents/openai.yaml version {manifest_version} != SKILL.md {version}")
+        add(findings, "error", f"agents/openai.yaml version {manifest_version} != plugin package version {version}")
     if f"${SKILL_NAME}" not in text and f"${USING_SKILL_NAME}" not in text:
         add(findings, "error", "agents/openai.yaml default_prompt must use the bootloader or direct router trigger")
 
@@ -289,12 +305,12 @@ def check_readme(root: Path, version: str | None, findings: list[Finding]) -> No
         "~/.codex/skills/engineering-project-inheritance",
         "~/.agents/skills/engineering-project-inheritance",
         ".codex-plugin/plugin.json",
+        '"skills": "./skills/"',
         "skills/engineering-everything/SKILL.md",
         "skills/using-engineering-everything/SKILL.md",
         "skills/engineering-project-inheritance/SKILL.md",
         "python3 scripts/install.py",
         "python3 scripts/install.py list",
-        "--layout legacy",
         "scripts/sync_references.py",
         "scripts/eval_scenarios.py",
         "docs/testing.md",
@@ -316,7 +332,7 @@ def check_readme(root: Path, version: str | None, findings: list[Finding]) -> No
                 add(
                     findings,
                     "error",
-                    f"README.md current version {mentioned_version} != SKILL.md {version}",
+                    f"README.md current version {mentioned_version} != plugin package version {version}",
                 )
     for old_name in OLD_SKILL_NAMES:
         forbidden = [
@@ -515,7 +531,6 @@ def check_old_names(root: Path, package: Path, findings: list[Finding]) -> None:
     del allow
     paths = [
         root / "README.md",
-        package / "SKILL.md",
         package / "agents/openai.yaml",
         package / ".codex-plugin/plugin.json",
         *[skill_package / "SKILL.md" for skill_package in skill_packages(package)],
@@ -539,7 +554,6 @@ def check_json_schemas(package: Path, findings: list[Finding]) -> None:
 
 def check_self_evolution_harness(package: Path, findings: list[Finding]) -> None:
     skill_paths = [
-        package / "SKILL.md",
         package / "skills" / SKILL_NAME / "SKILL.md",
     ]
     routes_path = package / "data/routes.yaml"

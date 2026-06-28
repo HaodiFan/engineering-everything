@@ -1,5 +1,7 @@
 # Design Doc: Engineering Everything 多 Skill 拆分 v0.1
 
+> Update 2026-06-28: 本设计中的根 `SKILL.md` 和 `--layout legacy` 兼容策略已由 `docs/designs/2026-06-28-root-skill-demotion.md` 取代。当前结构为 plugin-first，运行时入口只在 `skills/*/SKILL.md`。
+
 ## TLDR
 
 把 Engineering Everything 从单个超大 Skill 拆成 plugin-style skill library：主 `engineering-everything` 只做路由和协作纪律，场景能力下沉到独立子 skill。Phase 1 迁移 `engineering-project-inheritance` 作为 pilot；Phase 2 补齐各场景薄子 skill；Phase 3 已把各场景 reference 迁入对应子 skill，并由 route seed 指向 skill-local references。
