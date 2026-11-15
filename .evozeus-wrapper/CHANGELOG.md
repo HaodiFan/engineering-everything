@@ -6,6 +6,10 @@ Wrapper harness migrations are recorded under `.evozeus-wrapper/docs/migrations/
 
 ## [Unreleased]
 
+- Release `v0.15.0`: moved the accumulated entries under the version header and added `release-notes-v0.15.0.md`.
+
+## [v0.15.0] - 2026-11-16
+
 ### Skill changes
 
 - Flattened the entry path (`0.15.0`): the bootloader is now a thin hand-off (session resume + go to the router) with no references of its own; the router is the single file to read before work and carries the route table, hard rules and the five "对人表达" rules inline; every sub-skill reference now states when to read it. Before: ~10 required reads across 4 hops; after: router + sub-skill, references on demand.
