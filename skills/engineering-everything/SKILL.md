@@ -2,7 +2,7 @@
 name: engineering-everything
 description: Use when a task needs engineering-route judgment before choosing product definition, project inheritance, architecture, execution, build, refactor, review, release, organization, automation, or skill-evolution work.
 metadata:
-  version: 0.15.1
+  version: 0.16.0
 ---
 
 # Engineering Everything / 工程化万物
@@ -26,6 +26,7 @@ metadata:
 | 实现、修 bug、迁移、接接口、跑验证 | `engineering-build-verify` |
 | 重构、清理、模块化、技术债 | `engineering-refactoring` |
 | review、PR、合并、验收、发布、上线 | `engineering-review-release` |
+| 界面哪里不好、UI/UX 评判或验收、无障碍、交互体验 | `engineering-ui-ux-audit` |
 | RPA、OCR、CV、LLM 流水线、浏览器自动化、数据分析 | `engineering-automation-playbooks` |
 | 面试、入职、组织、SOP、非软件产物、项目估算 | `engineering-organization-systems` |
 | 明确要求记录 lesson、沉淀 pattern、升级 Skill | `engineering-skill-evolution` |

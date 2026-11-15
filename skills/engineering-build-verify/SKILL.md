@@ -2,7 +2,7 @@
 name: engineering-build-verify
 description: Use when implementing, fixing bugs, migrating code, wiring APIs, running validation commands, or closing a build/test loop with minimal scoped changes.
 metadata:
-  version: 0.15.1
+  version: 0.16.0
 ---
 
 # Engineering Build Verify / 构建验证
@@ -49,3 +49,4 @@ metadata:
 - `references/checklists.md`：收尾、准备 PR 时。
 - `references/delivery-gates.md`：团队交付、需要留交付证据时。
 - `references/verification-methods.md`：常规测试不够、要挑更合适的验证方法时。
+- `references/react-doctor.md`：实现或修复的是 React 代码，收尾前想扫一遍新引入的问题时。

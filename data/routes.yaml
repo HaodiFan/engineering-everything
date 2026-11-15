@@ -117,13 +117,32 @@ routes:
     conflicts: ["build", "refactor"]
     fallback: build
     handoff_to: ["learn"]
-    eval_cases: ["review-findings-first", "quality-gate-fixed-flow"]
+    eval_cases: ["review-findings-first", "quality-gate-fixed-flow", "react-review-uses-react-doctor"]
     references:
       - skills/engineering-review-release/references/code-review-standards.md
       - skills/engineering-review-release/references/checklists.md
       - skills/engineering-review-release/references/execution-pipeline.md
       - skills/engineering-review-release/references/delivery-gates.md
       - skills/engineering-review-release/references/verification-methods.md
+      - skills/engineering-review-release/references/react-doctor.md
+  - id: ui-ux-audit
+    skill: engineering-ui-ux-audit
+    priority: 75
+    direct_call_allowed: true
+    aliases: ["/ui-audit", "/ux-review"]
+    signals: ["UI", "UX", "界面", "页面哪里不好", "体验", "交互", "无障碍", "视觉"]
+    fuzzy_examples:
+      - "帮我看看这个页面哪里不好"
+      - "这个界面能不能验收"
+    stages: ["7"]
+    conflicts: ["review-release", "product"]
+    fallback: review-release
+    handoff_to: ["review-release", "build"]
+    eval_cases: ["ui-ux-audit-evidence-boundary"]
+    references:
+      - skills/engineering-ui-ux-audit/references/ui-ux-rules.md
+      - skills/engineering-ui-ux-audit/references/ui-ux-verification.md
+      - skills/engineering-ui-ux-audit/references/ui-ux-playbook.md
   - id: automation
     skill: engineering-automation-playbooks
     priority: 40

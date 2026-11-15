@@ -29,6 +29,7 @@
 |---|---|---|
 | build / lint / typecheck / 已有测试 | 每次 | CI run、命令、exit code |
 | 依赖与安全扫描（SCA、secret 扫描、SAST） | 每次有依赖、配置或权限相关改动 | 扫描报告与处理结论 |
+| React Doctor（React 代码体检） | React 项目的 PR、重构前后、交付前 | `--scope changed` 的 JSON 报告：新引入的问题及处理结论（用法见 `react-doctor.md`） |
 | 变异测试（Stryker、mutmut、PIT） | 核心业务逻辑、计费、权限判断等高价值模块；覆盖率高但怀疑断言弱时 | 变更文件的 mutation score 与存活变异 |
 
 变异测试证明“测试会不会发现错误”，能揭示覆盖率 100% 但断言空洞的问题；耗时较长，只对变更范围或核心模块跑。
@@ -51,6 +52,7 @@
 | Bombadil（UI 属性测试） | 状态复杂的 Web/终端 UI；需要验证“永远不出现未处理错误”“加载最终结束”“操作后 N 秒内有反馈”之类不变量 | TypeScript 规约（`always` / `eventually` / `within` 等时序属性 + 动作生成器）、探索运行记录、最小复现 | 随机探索，非穷举；属性需从验收项提炼 |
 | 无障碍（`@axe-core/playwright`） | 所有 UI 变更 | 扫描结果 JSON | 自动化只能发现约三到四成 WCAG 问题，关键流程仍需键盘/读屏人工抽查 |
 | 视觉回归（Playwright `toHaveScreenshot`） | 布局、组件样式变更 | 基线与差异图 | 只发现像素变化，不判断好坏 |
+| UI/UX 规则审计 | 有界面的交付、改版前摸底 | 交给 `engineering-ui-ux-audit`：69 条规则逐条 通过/不通过/不适用/未验证，含证据与复验条件 | 规则来自通用规范和经验，不替代目标用户试用 |
 | 状态截图矩阵 | loading / empty / error / 权限不足 / 长文本 / 窄屏 | 每个状态的截图 | — |
 
 Agent 可以直接从需求卡里“做成的样子”起草 Bombadil 属性和 Playwright 用例；由验收人确认属性确实表达了验收意图。

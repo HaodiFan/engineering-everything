@@ -6,7 +6,11 @@ Wrapper harness migrations are recorded under `.evozeus-wrapper/docs/migrations/
 
 ## [Unreleased]
 
-- Release `v0.15.1`: moved the entries below under the version header and added `release-notes-v0.15.1.md`.
+### Skill changes
+
+- New sub-skill `engineering-ui-ux-audit` (`0.16.0`): rule-based UI/UX review imported from the owner's `ui-ux-audit` skill — 69 numbered rules, each with trigger, boundary, evidence, severity, fix and re-check; findings are 通过 / 不通过 / 不适用 / 未验证, no aesthetic scores, and anything a screenshot cannot prove is marked unverified. References ship as `ui-ux-*.md`. New route `ui-ux-audit` (aliases `/ui-audit`, `/ux-review`), router table row, and the review skill hands "用起来顺吗 / 看起来对吗" to it during delivery gates.
+- Added `references/react-doctor.md`: when and how to run the open-source React Doctor CLI (millionco, Modified MIT) in review, build-verify, refactoring and UI audit — changed-scope scans for PRs, `--no-telemetry --no-supply-chain` by default, re-grade findings under EE review rules, never treat the score as a verdict, never run its `install` / `ci install` without the user asking. Listed in `verification-methods.md`.
+- Two behavior eval scenarios: `ui-ux-audit-evidence-boundary`, `react-review-uses-react-doctor`.
 
 ## [v0.15.1] - 2026-11-16
 
