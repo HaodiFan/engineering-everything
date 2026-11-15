@@ -152,6 +152,18 @@ python3 scripts/install.py uninstall --target both
 - `~/.agents/skills/engineering-everything`
 - `~/.agents/skills/engineering-project-inheritance`
 
+### 启动时检查新版本
+
+每次新开会话时检查两件事：本仓库在 GitHub `main` 上有没有新版本，EvoZeus 当前通道有没有新版本。两边都是最新的时候不出声；有新版本时在会话开头提示一句，并告诉你怎么升级。检查**不会自己拉代码或改安装**：EE 要你自己 `git pull --ff-only`，EvoZeus 本身会在会话启动时自动升级。网络不通时也不出声，同一小时内只联网查一次。
+
+```bash
+python3 scripts/update_check.py install-hook --target both    # 写入 Claude / Codex 的 SessionStart hook
+python3 scripts/update_check.py check --force                 # 手动查一次
+python3 scripts/update_check.py uninstall-hook --target both
+```
+
+Codex 第一次遇到新 hook 时会要求你在 hooks 界面里批准。临时关闭：`EE_UPDATE_CHECK=0`；调整频率：`EE_UPDATE_CHECK_INTERVAL=<秒>`。
+
 旧式整包安装已经退役；`--layout legacy` 会被拒绝。当前结构是 plugin-first / library layout，运行时入口只来自 `skills/*/SKILL.md`。
 
 ## Repository Layout
@@ -210,6 +222,7 @@ Key files:
 | `scripts/self_evolve.py` | 检查自进化 harness、GitHub/source contract 和安装副本。 |
 | `scripts/lesson.py` | 校验 lesson/pattern 结构。 |
 | `scripts/gate_check.py` | 机检 Evidence Package 是否可发布；`template` 子命令生成空包。 |
+| `scripts/update_check.py` | 检查 EE 和 EvoZeus 在 GitHub 上是否有新版本；可装成会话启动 hook（只提示，不自动更新）。 |
 
 常用验证：
 
