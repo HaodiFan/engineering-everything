@@ -2,7 +2,7 @@
 name: using-engineering-everything
 description: Use when starting, resuming, or switching an Engineering Everything session before selecting the kernel router or a direct engineering sub-skill.
 metadata:
-  version: 0.14.0
+  version: 0.15.0
 ---
 
 <!-- evozeus-harness-entry:v1 -->
@@ -10,58 +10,27 @@ metadata:
 [.evozeus-wrapper/skills/using-evozeus-harness/SKILL.md](.evozeus-wrapper/skills/using-evozeus-harness/SKILL.md)。**
 <!-- /evozeus-harness-entry -->
 
+路径说明：上面的 `.evozeus-wrapper/...` 相对**源仓库根目录**（本文件 realpath 往上两级），不在已安装的 skill 目录里。
+
 # Using Engineering Everything / 启动器
 
-这是 Engineering Everything 的 bootloader。它只负责决定是否进入工程化路由、恢复会话上下文、加载主路由和约束输出，不承载具体 route 表。
+本文件只管三件事：要不要进 Engineering Everything、会话中断后怎么接上、然后交给主路由。**路由表、规则和输出要求都在 `engineering-everything`，直接读它即可，开工前不需要再读别的文件。**
 
 ## 何时使用
 
 - 用户显式使用 `$using-engineering-everything`。
-- 任务是复杂工程、组织、自动化、Skill、SOP、项目交付或旧项目接手。
-- 会话 resume 后需要判断是继续原 route，还是任务已经切换。
-- 用户先给了模糊目标，需要先判断阶段、形态、边界、验证门禁。
+- 复杂工程、组织、自动化、Skill、SOP、项目交付或旧项目接手。
+- 用户只给了模糊目标，需要先判断做什么、做到哪一步。
 
-## 加载顺序
+普通小问题、单纯问答不进入。
 
-1. 读取本文件，确认是否进入 Engineering Everything。
-2. 读取 `references/route-contract.md`，理解 route 字段和裁决方式。
-3. 读取 `references/output-contracts.md`，确定本次输出字段。
-4. 读取 `references/codex-tools.md`，确认工具和收尾边界。
-5. 进入 `engineering-everything` 主路由；主路由再按 `data/routes.yaml` 命中子 Skill。
+## 会话接续
 
-## Session / Resume
+- 同一任务继续：先说清楚上次停在哪（路由、阶段、在改的文件、交付关口：想清楚 / 在做 / 验收 / 收尾），从那里继续，不重走已完成的步骤。
+- 明显换了任务：重新按主路由判断，不沿用旧路由。
+- 上下文被压缩后：先用两三句话重建上面这些状态，再继续。
+- 拿不准是不是换任务：先问一句，不直接动手。
 
-- 如果用户继续同一任务，先恢复最近一次工程路由、阶段、项目形态、验证门禁和打开的文件。
-- 如果用户明显换任务，重新进入主路由，不沿用旧 route。
-- context compaction 后，先重建 route summary，再继续执行。
-- 团队交付的事情中断后恢复时，先说清楚这件事停在哪（想清楚 / 在做 / 验收 / 收尾），从那里继续，不重走已经完成的步骤。
-- 不确定是否切换任务时，先问一个澄清问题，不直接实现。
+## 下一步
 
-## 停止条件
-
-- route 不明，且缺少足够信息判断下一步。
-- 需求、合规、数据源、权限或 owner 决策缺失，却准备进入实现。
-- 重构或迁移没有验证门禁。
-- 用户不满意时，先 issue-first 询问是否沉淀 lesson，不把主任务默认改路由到 learn。
-
-## Self-Evolution Handoff
-
-只有用户明确要求 `/learn`、`/lesson`、`/pattern`、`/self-evolve`、升级 Skill，或确认要把纠偏沉淀为 lesson issue 时，才交给 `engineering-skill-evolution`。
-
-## EvoZeus-CoEvolve 自进化治理
-
-进入 `engineering-skill-evolution` 后，行为变更必须遵循共享 Skillware 的可追踪发布闭环：
-
-1. 先创建或关联 Skill Feedback Issue，记录问题、期望、复现场景和证据边界。
-2. 在 `.evozeus-wrapper/docs/designs/` 建立 design doc，再修改 Skill、route、reference 或 script。
-3. PR 同步更新 `.evozeus-wrapper/CHANGELOG.md`，并运行 Engineering Everything 自身验证门禁。
-4. 合并后创建 `vMAJOR.MINOR.PATCH` release tag 和 release notes，使兼容用户获得同一共享版本。
-5. wrapper harness version 由 `.evozeus-wrapper/wrapper.json` 管理；wrapper migration 只允许 append-only 更新，并记录在 `.evozeus-wrapper/docs/migrations/`。
-
-业务方法和工程路由继续由本 repo 维护。EvoZeus-CoEvolve 只增加证据、评估、版本和恢复治理。
-
-## References
-
-- `references/route-contract.md`：route 字段契约和裁决顺序。
-- `references/output-contracts.md`：规划、执行、review、eval 输出契约。
-- `references/codex-tools.md`：Codex 工具使用和收尾边界。
+进入 `engineering-everything` 主路由。用户纠偏、要求沉淀 lesson 或升级 Skill 时，按主路由里的规则处理。

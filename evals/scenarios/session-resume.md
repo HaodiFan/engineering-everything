@@ -20,7 +20,7 @@ must:
 must_not:
   - 不重新当作全新需求设计。
 expected_references:
-  - skills/using-engineering-everything/references/route-contract.md
+  - skills/using-engineering-everything/SKILL.md
 ---
 
 # Session Resume

@@ -2,7 +2,7 @@
 name: engineering-build-verify
 description: Use when implementing, fixing bugs, migrating code, wiring APIs, running validation commands, or closing a build/test loop with minimal scoped changes.
 metadata:
-  version: 0.14.0
+  version: 0.15.0
 ---
 
 # Engineering Build Verify / 构建验证
@@ -39,11 +39,11 @@ metadata:
 - 工作树存在相关未知改动，无法判断是否用户改动。
 - 验证失败且无法定位到可继续推进的下一步。
 
-## References
+## References（用到时再读）
 
-- `references/stage-playbook.md`：Stage 6 实现与验证阶段。
-- `references/execution-pipeline.md`：最小切片、source-driven gate、验证闭环。
-- `references/agent-operating-standards.md`：agent 执行纪律。
-- `references/checklists.md`：验证和 PR readiness checklist。
-- `references/delivery-gates.md`：交付前需要留什么证据。
-- `references/verification-methods.md`：验证方法与局限。
+- `references/execution-pipeline.md`：切片不清楚、或要按 source-driven gate 推进时。
+- `references/stage-playbook.md`：拿不准当前处于哪个阶段时。
+- `references/agent-operating-standards.md`：多 agent 协作或执行纪律有疑问时。
+- `references/checklists.md`：收尾、准备 PR 时。
+- `references/delivery-gates.md`：团队交付、需要留交付证据时。
+- `references/verification-methods.md`：常规测试不够、要挑更合适的验证方法时。

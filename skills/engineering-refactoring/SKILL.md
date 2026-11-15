@@ -2,7 +2,7 @@
 name: engineering-refactoring
 description: Use when refactoring, cleaning up, modularizing, renaming, reducing technical debt, or preserving behavior while improving structure.
 metadata:
-  version: 0.14.0
+  version: 0.15.0
 ---
 
 # Engineering Refactoring / 重构治理
@@ -46,9 +46,9 @@ metadata:
 - 重构动机只是风格偏好。
 - 改动会改变业务行为、数据模型或公共 API，却没有 spec/ADR。
 
-## References
+## References（用到时再读）
 
-- `references/refactoring-rules.md`：坏味道、重构手法和行为保持 gate。
-- `references/checklists.md`：重构与验证 checklist。
-- `references/execution-pipeline.md`：PR 拆分、review pipeline、验证流程。
-- `references/stage-playbook.md`：Stage 9 维护判断。
+- `references/refactoring-rules.md`：开始重构前就读：坏味道、手法和行为保持 gate。
+- `references/checklists.md`：每个重构 PR 收尾时。
+- `references/execution-pipeline.md`：要拆 PR 或安排 review 时。
+- `references/stage-playbook.md`：拿不准是否属于维护阶段时。
