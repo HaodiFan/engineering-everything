@@ -250,7 +250,7 @@ python3 -m unittest discover -s tests
 - 当前版本：`0.15.0`
 - GitHub repo：`HaodiFan/engineering-everything`
 - Runtime layout：plugin-first, `skills/*/SKILL.md`
-- Recommended next release：`v0.15.0`（入口扁平化，含 0.14.0 开发 SkillOS 三关口）
+- Latest release：`v0.15.0`（入口扁平化 + 开发 SkillOS 三关口 + 启动时版本检查）
 - License：`UNLICENSED`
 
 ## Uninstall
