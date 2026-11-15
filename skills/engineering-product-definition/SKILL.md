@@ -2,7 +2,7 @@
 name: engineering-product-definition
 description: Use when clarifying or reviewing a product idea, PRD, requirements, PSPS, user scenario, scope, non-goals, or success criteria, finding gaps and recommending decisions for user confirmation before architecture or implementation.
 metadata:
-  version: 0.15.0
+  version: 0.15.1
 ---
 
 # Engineering Product Definition / 产品定义
@@ -54,6 +54,8 @@ metadata:
 - 审查结论或业务取舍尚未得到用户明确确认；此时可继续查证和完善建议，保持在需求审查阶段。
 
 ## References（用到时再读）
+
+本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
 - `references/delivery-gates.md`：团队任务，要写需求卡、定档位、判断要不要找人拍板时。
 - `references/psps-framework.md`：需求模糊，要用 PSPS 挖洞察时。

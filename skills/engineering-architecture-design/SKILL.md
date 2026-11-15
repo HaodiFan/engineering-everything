@@ -2,7 +2,7 @@
 name: engineering-architecture-design
 description: Use when choosing technical architecture, project shape, stack, data source, boundaries, deployment model, AI/Agent architecture, or scaffold strategy.
 metadata:
-  version: 0.15.0
+  version: 0.15.1
 ---
 
 # Engineering Architecture Design / 架构设计
@@ -48,6 +48,8 @@ metadata:
 - 没有 spec，却要新增状态机、存储、权限或公共 API。
 
 ## References（用到时再读）
+
+本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
 - `references/architecture-cases.md`：要做通用架构选型、比较方案时。
 - `references/architecture-cases-ai.md`：涉及 AI / Agent 架构时。

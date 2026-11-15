@@ -2,7 +2,7 @@
 name: engineering-automation-playbooks
 description: Use when designing or implementing RPA, OCR, CV, LLM production pipelines, browser automation, data governance, analytics reporting, or POC/spike automation.
 metadata:
-  version: 0.15.0
+  version: 0.15.1
 ---
 
 # Engineering Automation Playbooks / 自动化场景
@@ -47,6 +47,8 @@ metadata:
 - 没有 trace 和失败状态，却要长期运行自动化。
 
 ## References（用到时再读）
+
+本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
 - `references/scenario-playbooks.md`：进入具体场景（RPA、OCR、CV、数据治理、LLM、浏览器自动化、POC）时。
 - `references/architecture-cases-ai.md`：要做 AI / Agent 架构选型时。

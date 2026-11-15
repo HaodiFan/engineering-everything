@@ -2,7 +2,7 @@
 name: engineering-execution-planning
 description: Use when splitting a feature, writing an implementation plan, choosing worktree strategy, defining vertical slices, validation gates, or review roles before coding.
 metadata:
-  version: 0.15.0
+  version: 0.15.1
 ---
 
 # Engineering Execution Planning / 执行规划
@@ -48,6 +48,8 @@ metadata:
 - 计划混入无关重构、格式化、依赖升级或额外 feature。
 
 ## References（用到时再读）
+
+本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
 - `references/execution-pipeline.md`：写 implementation plan、安排 worktree 和 review 分工时。
 - `references/stage-playbook.md`：拿不准该拆到哪个阶段时。

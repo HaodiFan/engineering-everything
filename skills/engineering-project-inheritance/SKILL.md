@@ -2,7 +2,7 @@
 name: engineering-project-inheritance
 description: Use when taking over an existing repository, auditing an old project, deciding whether to refactor, or planning how to continue work from current code and documents.
 metadata:
-  version: 0.15.0
+  version: 0.15.1
 ---
 
 # Engineering Project Inheritance / 接手已有项目
@@ -54,5 +54,7 @@ metadata:
 - 跳过业务 owner 同步，只凭代码判断业务意图。
 
 ## References（用到时再读）
+
+本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
 - `references/inheriting-projects.md`：开始盘点时就读：完整盘点清单、现状报告模板和路径选择。

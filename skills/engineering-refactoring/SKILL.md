@@ -2,7 +2,7 @@
 name: engineering-refactoring
 description: Use when refactoring, cleaning up, modularizing, renaming, reducing technical debt, or preserving behavior while improving structure.
 metadata:
-  version: 0.15.0
+  version: 0.15.1
 ---
 
 # Engineering Refactoring / 重构治理
@@ -47,6 +47,8 @@ metadata:
 - 改动会改变业务行为、数据模型或公共 API，却没有 spec/ADR。
 
 ## References（用到时再读）
+
+本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
 - `references/refactoring-rules.md`：开始重构前就读：坏味道、手法和行为保持 gate。
 - `references/checklists.md`：每个重构 PR 收尾时。

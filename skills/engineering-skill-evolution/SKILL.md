@@ -2,7 +2,7 @@
 name: engineering-skill-evolution
 description: Use when evolving a skill, capturing lessons, promoting patterns, changing routes, updating references, installing skills, validating skill packages, or publishing skill releases.
 metadata:
-  version: 0.15.0
+  version: 0.15.1
 ---
 
 # Engineering Skill Evolution / Skill 自进化
@@ -70,6 +70,8 @@ Skill 升级不是继续堆理念，而是把纠偏分成 lesson、pattern、ref
 - 验证脚本失败，或版本、manifest、README、安装副本不一致。
 
 ## References（用到时再读）
+
+本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
 - `references/self-evolution-harness.md`：进入本 Skill 就读，自进化流程和 gate。
 - `references/lessons.md`：要查重、追加 L1 lesson 时。

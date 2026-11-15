@@ -6,7 +6,11 @@ Wrapper harness migrations are recorded under `.evozeus-wrapper/docs/migrations/
 
 ## [Unreleased]
 
-- Release `v0.15.0`: moved the accumulated entries under the version header and added `release-notes-v0.15.0.md`.
+### Skill changes
+
+- Fix (`0.15.1`): code review could not load its smell catalog. `code-review-standards.md` tells the agent to use `refactoring-rules.md`, but only `engineering-refactoring` shipped it, so reviews from `engineering-review-release` and eight other skills silently skipped it. `refactoring-rules.md` now ships wherever the review standards do, and `engineering-review-release` lists it explicitly.
+- `data/reference_distribution.yaml` gained `requires:`; `sync_references.py` fails when a reference ships without one it depends on (`code-review-standards.md` requires `refactoring-rules.md`).
+- Every sub-skill now says where to find references it mentions by name but does not ship (the source repo `references/`, two levels above the skill's real path) and to say so if not found. `skill_doctor.py` enforces this and errors on `references/X.md` mentions that exist nowhere.
 
 ## [v0.15.0] - 2026-11-16
 

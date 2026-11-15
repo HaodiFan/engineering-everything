@@ -627,6 +627,35 @@ def check_entry_depth(package: Path, findings: list[Finding]) -> None:
             add(findings, "error", f"router table drifted from data/routes.yaml: missing {sorted(routed - listed)}, extra {sorted(listed - routed)}")
 
 
+FALLBACK_MARKER = "本目录没有的参考文件"
+NAMED_REFERENCE = re.compile(r"`references/([a-z0-9-]+\.md)`")
+
+
+def unresolved_reference_names(skill_package: Path, root_references: set[str]) -> list[str]:
+    """Names a skill mentions that exist neither in its own references/ nor in the source repo."""
+    local_dir = skill_package / "references"
+    local = {p.name for p in local_dir.glob("*.md")} if local_dir.exists() else set()
+    files = [skill_package / "SKILL.md", *sorted(local_dir.glob("*.md"))] if local else [skill_package / "SKILL.md"]
+    missing: list[str] = []
+    for path in files:
+        for name in NAMED_REFERENCE.findall(read_text(path)):
+            if name not in local and name not in root_references:
+                missing.append(f"{path.name} -> {name}")
+    return missing
+
+
+def check_reference_resolution(package: Path, findings: list[Finding]) -> None:
+    root_references = {p.name for p in (package / "references").glob("*.md")}
+    if not root_references:
+        return  # installed layout without the source library; nothing to resolve against
+    for skill_package in skill_packages(package):
+        text = read_text(skill_package / "SKILL.md")
+        if skill_package.name != USING_SKILL_NAME and FALLBACK_MARKER not in text:
+            add(findings, "error", f"{skill_package.name}: SKILL.md must say where to find references not shipped in this skill")
+        for item in unresolved_reference_names(skill_package, root_references):
+            add(findings, "error", f"{skill_package.name}: mentions a reference that exists nowhere: {item}")
+
+
 def run() -> tuple[list[Finding], Path, Path]:
     root = repo_root()
     package = skill_dir(root)
@@ -648,6 +677,7 @@ def run() -> tuple[list[Finding], Path, Path]:
     check_json_schemas(package, findings)
     check_self_evolution_harness(package, findings)
     check_entry_depth(package, findings)
+    check_reference_resolution(package, findings)
     return findings, root, package
 
 

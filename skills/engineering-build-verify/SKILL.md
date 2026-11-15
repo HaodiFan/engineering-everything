@@ -2,7 +2,7 @@
 name: engineering-build-verify
 description: Use when implementing, fixing bugs, migrating code, wiring APIs, running validation commands, or closing a build/test loop with minimal scoped changes.
 metadata:
-  version: 0.15.0
+  version: 0.15.1
 ---
 
 # Engineering Build Verify / 构建验证
@@ -40,6 +40,8 @@ metadata:
 - 验证失败且无法定位到可继续推进的下一步。
 
 ## References（用到时再读）
+
+本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
 - `references/execution-pipeline.md`：切片不清楚、或要按 source-driven gate 推进时。
 - `references/stage-playbook.md`：拿不准当前处于哪个阶段时。
