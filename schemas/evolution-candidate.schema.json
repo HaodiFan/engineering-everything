@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HaodiFan/engineering-everything/schemas/evolution-candidate.schema.json",
+  "title": "Engineering Everything Evolution Candidate",
+  "description": "Gate 3 output. Default outcome is no_evolution_needed. Methodology lessons still go issue-first via self-evolution-harness.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "case_id",
+    "task_id",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "failure_or_correction": {
+      "type": "string"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "impact": {
+      "type": "string"
+    },
+    "root_cause_hypothesis": {
+      "type": "string"
+    },
+    "recurrence_or_risk": {
+      "type": "string"
+    },
+    "proposed_asset_type": {
+      "type": "string",
+      "enum": [
+        "project-knowledge",
+        "intent-example",
+        "taste-case",
+        "test",
+        "tool",
+        "component",
+        "lesson",
+        "process"
+      ]
+    },
+    "destination": {
+      "type": "string",
+      "enum": [
+        "project",
+        "private-assets",
+        "engineering-everything"
+      ]
+    },
+    "proposed_scope": {
+      "type": "string"
+    },
+    "non_applicable_scope": {
+      "type": "string"
+    },
+    "validation_plan": {
+      "type": "string"
+    },
+    "maintenance_cost_estimate": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "owner": {
+      "type": "string"
+    },
+    "sensitivity": {
+      "type": "string",
+      "enum": [
+        "public",
+        "internal",
+        "confidential"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "no_evolution_needed",
+        "candidate",
+        "validated",
+        "published",
+        "adopted",
+        "measured",
+        "retired"
+      ]
+    },
+    "approval_ref": {
+      "type": "string"
+    },
+    "asset_version": {
+      "type": "string"
+    },
+    "adoption_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "measured_result": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rollback_ref": {
+      "type": "string"
+    }
+  }
+}

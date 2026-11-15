@@ -2,7 +2,7 @@
 
 用工程思维路由创造型任务：先判断需求、架构、执行、验证、发布和沉淀路径，再让 agent 动手。
 
-- 当前版本：`0.13.0`
+- 当前版本：`0.14.0`
 - Package ID：`engineering-everything`
 - License：`UNLICENSED`
 
@@ -15,6 +15,8 @@ Engineering Everything 是一个 plugin-first Skill library。它不是单个大
 - `engineering-*` 子 Skill：分别处理产品定义、架构、执行规划、构建验证、重构、review/release、自动化、组织系统、项目接手和 Skill 自进化。
 
 它解决的问题很直接：agent 不应该在需求未清、数据源未明、验证门禁不存在、旧项目未盘点时就开始写代码或搭架构。
+
+从 `0.14.0` 起，它也是团队协作的**开发 SkillOS**：创始人或业务方给一句话，负责人和 Agent 把它想清楚、做出来、由另一个人确认做对了再交付，值得记的经验沉淀下来，让下一次同类任务更少依赖创始人。见下方 [Delivery Gates](#delivery-gates开发-skillos)。
 
 ## Quick Start
 
@@ -58,6 +60,21 @@ flowchart LR
 ```
 
 路由事实源是 `data/routes.yaml`。输出契约事实源是 `references/output-contracts.md`。不要在 README 或 Skill 正文里维护第二套路由表或输出模板。
+
+## Delivery Gates（开发 SkillOS）
+
+团队交付一件事，只在三个时刻停下来：
+
+| 时刻 | 要回答的问题 | 负责的 Skill |
+|---|---|---|
+| 开工前：想清楚 | 帮谁解决什么问题？做成了是什么样子？要不要找人拍板？ | `engineering-product-definition`（+ `engineering-execution-planning`） |
+| 交付前：确认做对了 | 业务问题解决了吗？功能、体验、工程底线、上线准备都到位了吗？ | `engineering-review-release` |
+| 交付后：学到了什么 | 这次的纠偏值得记下来吗？记到哪里？ | `engineering-skill-evolution` |
+
+- 先业务后技术；事情越小流程越轻；对人先给结论、只说相关的事（`references/output-contracts.md` 的“对人表达”）。
+- 方法：`references/delivery-gates.md`；验证方法目录（业务验证、TLA+/TLC、Bombadil、Pact、变异测试、上线准备等，含什么时候用和局限）：`references/verification-methods.md`。
+- 需要留档或自动检查时：`schemas/` 下的需求卡、证据包、拍板单、沉淀候选、项目检查配置；`python3 scripts/gate_check.py check <证据包.json>` 检查证据是否齐全。
+- 本仓库只放通用方法。公司的审美案例、需求样例、项目检查配置放在项目 `.evolution/` 或 `EE_PRIVATE_ASSETS` 指向的私有仓库。
 
 ## Common Entrypoints
 
@@ -105,10 +122,17 @@ python3 scripts/install.py --target codex
 python3 scripts/install.py --target agents
 ```
 
-同时安装到两边：
+同时安装到 Codex 和 Agents：
 
 ```bash
 python3 scripts/install.py --target both
+```
+
+安装到 Claude Code（`~/.claude/skills`），或三个宿主全部安装：
+
+```bash
+python3 scripts/install.py --target claude
+python3 scripts/install.py --target all
 ```
 
 查看、重建 symlink、卸载：
@@ -127,6 +151,18 @@ python3 scripts/install.py uninstall --target both
 - `~/.agents/skills/using-engineering-everything`
 - `~/.agents/skills/engineering-everything`
 - `~/.agents/skills/engineering-project-inheritance`
+
+### 启动时检查新版本
+
+每次新开会话时检查两件事：本仓库在 GitHub `main` 上有没有新版本，EvoZeus 当前通道有没有新版本。两边都是最新的时候不出声；有新版本时在会话开头提示一句，并告诉你怎么升级。检查**不会自己拉代码或改安装**：EE 要你自己 `git pull --ff-only`，EvoZeus 本身会在会话启动时自动升级。网络不通时也不出声，同一小时内只联网查一次。
+
+```bash
+python3 scripts/update_check.py install-hook --target both    # 写入 Claude / Codex 的 SessionStart hook
+python3 scripts/update_check.py check --force                 # 手动查一次
+python3 scripts/update_check.py uninstall-hook --target both
+```
+
+Codex 第一次遇到新 hook 时会要求你在 hooks 界面里批准。临时关闭：`EE_UPDATE_CHECK=0`；调整频率：`EE_UPDATE_CHECK_INTERVAL=<秒>`。
 
 旧式整包安装已经退役；`--layout legacy` 会被拒绝。当前结构是 plugin-first / library layout，运行时入口只来自 `skills/*/SKILL.md`。
 
@@ -169,6 +205,9 @@ Key files:
 | `references/psps-framework.md` | Persona / Scenario / Pain / Solution Surface 框架。 |
 | `references/refactoring-rules.md` | 行为保持型重构规则。 |
 | `references/self-evolution-harness.md` | Lesson issue、pattern、自进化和发布门禁。 |
+| `references/delivery-gates.md` | 团队交付的三个关口、改动大小、什么时候找人拍板、公司私有内容的边界。 |
+| `references/verification-methods.md` | Gate 2 各步骤的成熟验证方法、触发条件与局限。 |
+| `schemas/*.schema.json` | 需求卡、Evidence Package、升级单、进化候选、lesson、pattern 的结构。 |
 | `evals/scenarios/*.md` | 行为 eval 场景。 |
 | `docs/testing.md` | 本地验证和 release gate 说明。 |
 
@@ -182,6 +221,8 @@ Key files:
 | `scripts/eval_scenarios.py` | 校验行为 eval scenario schema。 |
 | `scripts/self_evolve.py` | 检查自进化 harness、GitHub/source contract 和安装副本。 |
 | `scripts/lesson.py` | 校验 lesson/pattern 结构。 |
+| `scripts/gate_check.py` | 机检 Evidence Package 是否可发布；`template` 子命令生成空包。 |
+| `scripts/update_check.py` | 检查 EE 和 EvoZeus 在 GitHub 上是否有新版本；可装成会话启动 hook（只提示，不自动更新）。 |
 
 常用验证：
 
@@ -203,10 +244,10 @@ python3 -m unittest discover -s tests
 
 ## Status
 
-- 当前版本：`0.13.0`
+- 当前版本：`0.14.0`
 - GitHub repo：`HaodiFan/engineering-everything`
 - Runtime layout：plugin-first, `skills/*/SKILL.md`
-- Recommended next release after root demotion：`v0.13.0`
+- Recommended next release：`v0.14.0`（开发 SkillOS 三关口）
 - License：`UNLICENSED`
 
 ## Uninstall

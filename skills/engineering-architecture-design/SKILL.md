@@ -2,7 +2,7 @@
 name: engineering-architecture-design
 description: Use when choosing technical architecture, project shape, stack, data source, boundaries, deployment model, AI/Agent architecture, or scaffold strategy.
 metadata:
-  version: 0.13.0
+  version: 0.14.0
 ---
 
 # Engineering Architecture Design / 架构设计
@@ -22,6 +22,7 @@ metadata:
 3. AI 项目先做任务类型分流，不默认等于 LLM 项目。
 4. 对关键决策写清推荐、反例、代价、退出成本和最小验证。
 5. 触及长期边界时，要求 ADR 或 design doc 记录。
+6. 重要改动涉及并发、多步骤状态、重试或权限流转时，写代码前先验证设计本身（从简单的状态表评审起步，复杂时再用 TLA+/TLC 或 P，见 `references/verification-methods.md`）；发现的反例要变成测试。
 
 ## 输出模板
 
@@ -54,3 +55,4 @@ metadata:
 - `references/project-blueprints.md`：项目形态 starter。
 - `references/templates-governance.md`：ADR / CONSTITUTION 等治理模板。
 - `references/checklists.md`：架构和发布前 checklist。
+- `references/verification-methods.md`：设计验证什么时候值得做。

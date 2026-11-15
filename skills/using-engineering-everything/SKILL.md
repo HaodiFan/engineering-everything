@@ -2,7 +2,7 @@
 name: using-engineering-everything
 description: Use when starting, resuming, or switching an Engineering Everything session before selecting the kernel router or a direct engineering sub-skill.
 metadata:
-  version: 0.13.0
+  version: 0.14.0
 ---
 
 <!-- evozeus-harness-entry:v1 -->
@@ -34,6 +34,7 @@ metadata:
 - 如果用户继续同一任务，先恢复最近一次工程路由、阶段、项目形态、验证门禁和打开的文件。
 - 如果用户明显换任务，重新进入主路由，不沿用旧 route。
 - context compaction 后，先重建 route summary，再继续执行。
+- 团队交付的事情中断后恢复时，先说清楚这件事停在哪（想清楚 / 在做 / 验收 / 收尾），从那里继续，不重走已经完成的步骤。
 - 不确定是否切换任务时，先问一个澄清问题，不直接实现。
 
 ## 停止条件

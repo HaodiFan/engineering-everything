@@ -12,11 +12,12 @@ routes:
     conflicts: ["architecture", "execution-plan", "build"]
     fallback: execution-plan
     handoff_to: ["architecture", "execution-plan"]
-    eval_cases: ["route-before-building", "no-spec-no-architecture"]
+    eval_cases: ["route-before-building", "no-spec-no-architecture", "intent-gate-team-task"]
     references:
       - skills/engineering-product-definition/references/stage-playbook.md
       - skills/engineering-product-definition/references/checklists.md
       - skills/engineering-product-definition/references/spec-templates.md
+      - skills/engineering-product-definition/references/delivery-gates.md
   - id: architecture
     skill: engineering-architecture-design
     priority: 60
@@ -33,6 +34,7 @@ routes:
     references:
       - skills/engineering-architecture-design/references/architecture-cases.md
       - skills/engineering-architecture-design/references/project-blueprints.md
+      - skills/engineering-architecture-design/references/verification-methods.md
   - id: inherit
     skill: engineering-project-inheritance
     priority: 10
@@ -64,6 +66,8 @@ routes:
     references:
       - skills/engineering-execution-planning/references/execution-pipeline.md
       - skills/engineering-execution-planning/references/checklists.md
+      - skills/engineering-execution-planning/references/delivery-gates.md
+      - skills/engineering-execution-planning/references/verification-methods.md
   - id: build
     skill: engineering-build-verify
     priority: 20
@@ -81,6 +85,8 @@ routes:
       - skills/engineering-build-verify/references/stage-playbook.md
       - skills/engineering-build-verify/references/execution-pipeline.md
       - skills/engineering-build-verify/references/agent-operating-standards.md
+      - skills/engineering-build-verify/references/delivery-gates.md
+      - skills/engineering-build-verify/references/verification-methods.md
   - id: refactor
     skill: engineering-refactoring
     priority: 30
@@ -104,18 +110,20 @@ routes:
     priority: 80
     direct_call_allowed: true
     aliases: ["/test", "/review", "/ship", "/release"]
-    signals: ["review", "PR", "merge", "release", "发布"]
+    signals: ["review", "PR", "merge", "release", "发布", "验收", "门禁", "上线"]
     fuzzy_examples:
       - "review 这个 PR，判断能不能 merge"
     stages: ["7", "8"]
     conflicts: ["build", "refactor"]
     fallback: build
     handoff_to: ["learn"]
-    eval_cases: ["review-findings-first"]
+    eval_cases: ["review-findings-first", "quality-gate-fixed-flow"]
     references:
       - skills/engineering-review-release/references/code-review-standards.md
       - skills/engineering-review-release/references/checklists.md
       - skills/engineering-review-release/references/execution-pipeline.md
+      - skills/engineering-review-release/references/delivery-gates.md
+      - skills/engineering-review-release/references/verification-methods.md
   - id: automation
     skill: engineering-automation-playbooks
     priority: 40
@@ -145,11 +153,12 @@ routes:
     conflicts: ["review-release", "refactor"]
     fallback: review-release
     handoff_to: ["review-release"]
-    eval_cases: ["dissatisfaction-issue-first"]
+    eval_cases: ["dissatisfaction-issue-first", "evolution-default-none"]
     references:
       - skills/engineering-skill-evolution/references/lessons.md
       - skills/engineering-skill-evolution/references/patterns-skill.md
       - skills/engineering-skill-evolution/references/self-evolution-harness.md
+      - skills/engineering-skill-evolution/references/delivery-gates.md
   - id: talent
     skill: engineering-organization-systems
     priority: 90

@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HaodiFan/engineering-everything/schemas/intent-card.schema.json",
+  "title": "Engineering Everything Intent Card",
+  "description": "Gate 1 output: the DRI's expansion of a coarse intent. Facts, assumptions and unknowns stay separate.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "task_id",
+    "revision",
+    "original_intent",
+    "goal",
+    "acceptance",
+    "authorization_level"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "project": {
+      "type": "string"
+    },
+    "dri": {
+      "type": "string"
+    },
+    "original_intent": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Verbatim intent; never paraphrased over."
+    },
+    "source_ref": {
+      "type": "string"
+    },
+    "user_and_scenario": {
+      "type": "string"
+    },
+    "goal": {
+      "type": "string"
+    },
+    "non_goals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "hard_constraints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "text",
+          "reversible"
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "reversible": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "context_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "taste_case_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "acceptance": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "observable_result"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "observable_result": {
+            "type": "string"
+          },
+          "proposed_verification": {
+            "type": "string",
+            "description": "Method from references/verification-methods.md"
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "escalations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "prototype_ref": {
+      "type": "string"
+    },
+    "implementation_slices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "outcome"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "interfaces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "authorization_level": {
+      "type": "string",
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3"
+      ]
+    },
+    "needs_design_verification": {
+      "type": "boolean"
+    }
+  }
+}

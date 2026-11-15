@@ -2,7 +2,7 @@
 name: engineering-skill-evolution
 description: Use when evolving a skill, capturing lessons, promoting patterns, changing routes, updating references, installing skills, validating skill packages, or publishing skill releases.
 metadata:
-  version: 0.13.0
+  version: 0.14.0
 ---
 
 # Engineering Skill Evolution / Skill 自进化
@@ -22,6 +22,10 @@ Skill 升级不是继续堆理念，而是把纠偏分成 lesson、pattern、ref
 3. 主 `SKILL.md` 只做路由；新知识默认下沉 reference，重复动作进入 scripts。
 4. 改结构、版本、路由或安装路径后，必须跑 self-evolve 与 doctor gates。
 5. 发布前再检查 GitHub origin、release tag、安装副本和版本一致性。
+
+### 团队交付：交付后看学到了什么
+
+按 `references/delivery-gates.md` 第 6 节：大多数任务不需要沉淀，直接结束。只有可能再发生或代价高的问题才记下来，并先想清楚记到哪里：需求和审美案例记到项目或公司私有库；同类错误第二次出现就变成自动检查；只有通用的 Agent 方法问题才按 issue-first 进本仓库。公司案例和客户信息不进本仓库，也不进公开 issue。
 
 ## 输出模板
 
@@ -59,3 +63,5 @@ Skill 升级不是继续堆理念，而是把纠偏分成 lesson、pattern、ref
 - `references/lessons.md`：L1 纠偏日志。
 - `references/patterns-skill.md`：L2 可复用模式。
 - `references/prompts-guide.md`：capture / promote 等 prompt 工作流。
+- `references/delivery-gates.md`：哪些值得沉淀、记到哪里、公司私有内容的边界。
+- `references/output-contracts.md`：对人表达规则与“交付后”输出。

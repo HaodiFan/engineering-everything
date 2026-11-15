@@ -2,7 +2,7 @@
 name: engineering-product-definition
 description: Use when clarifying or reviewing a product idea, PRD, requirements, PSPS, user scenario, scope, non-goals, or success criteria, finding gaps and recommending decisions for user confirmation before architecture or implementation.
 metadata:
-  version: 0.13.0
+  version: 0.14.0
 ---
 
 # Engineering Product Definition / 产品定义
@@ -22,6 +22,10 @@ metadata:
 3. 分级说明缺口及影响。涉及业务取舍时给出可选方案、代价和推荐理由；提出 P0/P1/P2 范围建议，P0 必须保住最小业务闭环。
 4. 输出需求理解、关键缺口、建议和需用户确认的事项，等待用户明确确认审查结论及取舍。完备性检查通过本身不构成推进授权；用户只回答部分问题时，继续标明未决项。
 5. 用户确认后，将已确认内容更新到需求文档，再进入约定的下一步。已确认决策直接沿用，只有新增关键假设或范围变化才重新确认。
+
+### 团队交付：开工前想清楚
+
+需求来自创始人或业务方、由负责人来做时，按 `references/delivery-gates.md` 第 3 节写一页需求卡：帮谁解决什么问题、做成了是什么样子（能演示）、不做什么、哪些是推测、改动有多大。目标是让提需求的人看一眼就能说“对”或“不对”，而不是把问题清单丢回去。能自己定、可撤回的事自己定并记一句理由；只有真要取舍时才带着选项和推荐去问。
 
 ## 输出模板
 
@@ -56,3 +60,5 @@ metadata:
 - `references/templates-specs.md`：Requirements / Design Doc 具体模板。
 - `references/checklists.md`：需求完备性与验证 checklist。
 - `references/stage-playbook.md`：Stage 0-2 阶段判断。
+- `references/delivery-gates.md`：需求卡、改动大小、什么时候找人拍板。
+- `references/output-contracts.md`：对人表达规则与“开工前”输出。
