@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HaodiFan/engineering-everything/schemas/gate-profile.schema.json",
+  "title": "Engineering Everything Project Gate Profile",
+  "description": "Per-project mapping from Gate 2 steps to concrete commands. Lives in the project's .evolution/ or the private assets repo, never in this repo. Becomes blocking in CI only after the project owner confirms it.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "project",
+    "profile_version",
+    "owner",
+    "checks"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "project": {
+      "type": "string"
+    },
+    "profile_version": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "blocking": {
+      "type": "boolean",
+      "description": "false until the owner confirms the profile"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "step",
+          "required"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "step": {
+            "type": "string",
+            "enum": [
+              "D",
+              "G0",
+              "G1",
+              "G2",
+              "G3",
+              "G4",
+              "CR",
+              "R"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "min_level": {
+            "type": "string",
+            "enum": [
+              "L0",
+              "L1",
+              "L2",
+              "L3"
+            ]
+          },
+          "applicability": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "description": "Method name from verification-methods.md"
+          },
+          "command": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "null means manual or not yet automated"
+          },
+          "evidence_required": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

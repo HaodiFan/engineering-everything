@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HaodiFan/engineering-everything/schemas/decision-escalation.schema.json",
+  "title": "Engineering Everything Decision Escalation",
+  "description": "Raised only for value trade-offs, irreversible choices, key customer constraints, major risk or missing authority.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "task_id",
+    "original_intent",
+    "conflict",
+    "evidence",
+    "options",
+    "recommendation",
+    "decision_needed"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "decision_level": {
+      "type": "string",
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3"
+      ]
+    },
+    "original_intent": {
+      "type": "string"
+    },
+    "conflict": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "why_not_autonomous": {
+      "type": "string"
+    },
+    "options": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "impact",
+          "reversible"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "impact": {
+            "type": "string"
+          },
+          "reversible": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "recommendation": {
+      "type": "string"
+    },
+    "decision_needed": {
+      "type": "string"
+    },
+    "can_continue": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "decision": {
+      "type": "object",
+      "properties": {
+        "choice": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HaodiFan/engineering-everything/schemas/evidence-package.schema.json",
+  "title": "Engineering Everything Evidence Package",
+  "description": "Single delivery entry for Gate 2 Quality. Checked by scripts/gate_check.py. Protocol: references/delivery-gates.md.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "task_id",
+    "commit",
+    "authorization_level",
+    "steps"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "intent_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "authorization_level": {
+      "type": "string",
+      "enum": [
+        "L0",
+        "L1",
+        "L2",
+        "L3"
+      ]
+    },
+    "dri": {
+      "type": "string"
+    },
+    "reviewer": {
+      "type": "string"
+    },
+    "commit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "environment": {
+      "type": "string"
+    },
+    "acceptance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "expected": {
+            "type": "string"
+          },
+          "actual": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "BLOCKED",
+              "N/A"
+            ]
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "D",
+              "G0",
+              "G1",
+              "G2",
+              "G3",
+              "G4",
+              "CR",
+              "R"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "BLOCKED",
+              "N/A"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "commit": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "description": "Method from references/verification-methods.md"
+          }
+        }
+      }
+    },
+    "unrun_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "check",
+          "reason"
+        ],
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "residual_risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "rollout": {
+          "type": "string"
+        },
+        "rollback": {
+          "type": "string"
+        },
+        "monitoring": {
+          "type": "string"
+        }
+      }
+    },
+    "approvals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "step",
+          "approver"
+        ],
+        "properties": {
+          "step": {
+            "type": "string"
+          },
+          "approver": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "exceptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "step",
+          "approver",
+          "reason",
+          "expires",
+          "remediation"
+        ],
+        "properties": {
+          "step": {
+            "type": "string"
+          },
+          "approver": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "expires": {
+            "type": "string"
+          },
+          "remediation": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

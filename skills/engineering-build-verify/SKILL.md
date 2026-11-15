@@ -2,7 +2,7 @@
 name: engineering-build-verify
 description: Use when implementing, fixing bugs, migrating code, wiring APIs, running validation commands, or closing a build/test loop with minimal scoped changes.
 metadata:
-  version: 0.13.0
+  version: 0.14.0
 ---
 
 # Engineering Build Verify / 构建验证
@@ -22,6 +22,7 @@ metadata:
 3. 只改直接服务目标的文件；不处理无关坏味道。
 4. 改完立即跑最接近风险面的验证。
 5. 收尾说明变更文件、已运行验证、未运行检查及原因、剩余风险。
+6. 团队交付时：对照需求卡里“做成的样子”逐条留证据（对应这次要交付的版本），方便验收人复核；不要用假数据或截图冒充走通了。
 
 ## 输出模板
 
@@ -44,3 +45,5 @@ metadata:
 - `references/execution-pipeline.md`：最小切片、source-driven gate、验证闭环。
 - `references/agent-operating-standards.md`：agent 执行纪律。
 - `references/checklists.md`：验证和 PR readiness checklist。
+- `references/delivery-gates.md`：交付前需要留什么证据。
+- `references/verification-methods.md`：验证方法与局限。

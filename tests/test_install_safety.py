@@ -46,6 +46,18 @@ class InstallSafetyTests(unittest.TestCase):
 
             self.assertTrue(child.exists())
 
+    def test_target_groups_cover_claude(self) -> None:
+        home = Path.home()
+        self.assertEqual([home / ".claude/skills"], self.install.default_skill_roots("claude"))
+        self.assertEqual(
+            [home / ".codex/skills", home / ".agents/skills"],
+            self.install.default_skill_roots("both"),
+        )
+        self.assertEqual(
+            [home / ".codex/skills", home / ".agents/skills", home / ".claude/skills"],
+            self.install.default_skill_roots("all"),
+        )
+
     def test_discover_skill_packages_includes_bootloader(self) -> None:
         names = {path.name for path in self.install.discover_skill_packages(ROOT)}
 

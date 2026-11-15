@@ -2,7 +2,7 @@
 name: engineering-review-release
 description: Use when reviewing code, PRs, merge readiness, CI failures, release risk, rollback plans, or deciding whether a change is safe to ship.
 metadata:
-  version: 0.13.0
+  version: 0.14.0
 ---
 
 # Engineering Review Release / Review 与发布
@@ -17,11 +17,20 @@ metadata:
 
 ## 工作流
 
-1. 先看 diff、相关上下文和测试证据。
+1. 先看 diff、相关上下文、需求卡和测试证据。
 2. 按严重度列 findings，必须有文件/行号或明确证据。
 3. 区分阻断、建议、开放问题和残余风险。
 4. 发布前检查：配置、迁移、回滚、监控、兼容、数据风险。
 5. 没有问题就明确说无发现，并说明测试缺口。
+
+### 团队交付：交付前确认做对了
+
+按 `references/delivery-gates.md` 第 4 节，先问“业务问题解决了吗”，再看功能、体验、审美和工程底线；只深挖跟这次改动相关的项，无关的一句话带过。方法按事情大小从 `references/verification-methods.md` 里挑，不求全。
+
+- 结论只有三种：可以交付 / 还不能交付（附最小修改建议）/ 缺证据没法判断（说清缺什么、谁补）。
+- 没证据不算通过；“CI 绿了”“开发说测过了”只是线索，不是验收结论。开发用的 Agent 不当验收人。
+- 有发布时，业务侧（谁要提前知道、上线后看什么业务指标、出事怎么兜底）和技术侧（放量、撤回）一起确认。
+- 需要留档时写证据包，用源仓库的 `scripts/gate_check.py check <证据包>` 自动检查。本 skill 是软链安装的：取本目录真实路径向上两级就是源仓库；找不到就说明未机检，不要假装检查过。
 
 ## 输出模板
 
@@ -32,6 +41,8 @@ Change summary:
 Tests / release gates:
 Residual risk:
 ```
+
+团队交付时用 `references/output-contracts.md` 的“交付前”输出，先给结论。
 
 ## 停止条件
 
@@ -45,3 +56,6 @@ Residual risk:
 - `references/checklists.md`：PR readiness 与发布 checklist。
 - `references/execution-pipeline.md`：review roles 和 release gates。
 - `references/stage-playbook.md`：Stage 7-8 判断。
+- `references/delivery-gates.md`：交付前怎么确认做对了、怎么下结论、上线准备。
+- `references/verification-methods.md`：成熟验证方法，什么时候用、局限是什么。
+- `references/output-contracts.md`：对人表达规则与“交付前”输出。

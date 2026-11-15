@@ -45,6 +45,15 @@ entries:
     mode: exact-copy
     targets:
       - using-engineering-everything
+  - source: delivery-gates.md
+    mode: exact-copy
+    targets:
+      - engineering-build-verify
+      - engineering-everything
+      - engineering-execution-planning
+      - engineering-product-definition
+      - engineering-review-release
+      - engineering-skill-evolution
   - source: engineering-scenario-map.md
     status: legacy
     owner: root-route-map
@@ -91,6 +100,10 @@ entries:
     mode: exact-copy
     targets:
       - engineering-everything
+      - engineering-execution-planning
+      - engineering-product-definition
+      - engineering-review-release
+      - engineering-skill-evolution
       - using-engineering-everything
   - source: patterns-skill.md
     mode: exact-copy
@@ -170,3 +183,10 @@ entries:
     targets:
       - engineering-organization-systems
       - engineering-product-definition
+  - source: verification-methods.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+      - engineering-build-verify
+      - engineering-execution-planning
+      - engineering-review-release

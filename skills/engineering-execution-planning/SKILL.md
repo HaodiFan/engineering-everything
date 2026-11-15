@@ -2,7 +2,7 @@
 name: engineering-execution-planning
 description: Use when splitting a feature, writing an implementation plan, choosing worktree strategy, defining vertical slices, validation gates, or review roles before coding.
 metadata:
-  version: 0.13.0
+  version: 0.14.0
 ---
 
 # Engineering Execution Planning / 执行规划
@@ -22,6 +22,7 @@ metadata:
 3. 拆 vertical slices：每片都能产生可观察行为。
 4. 为每片定义验证：单元、集成、E2E、静态检查、人工验收。
 5. 指定 review roles：产品、架构、实现、测试、发布风险。
+6. 团队交付时：每块工作只有一个负责人；多人并行前先约定好交接的接口；每条“做成的样子”想好怎么确认（方法参考 `references/verification-methods.md`，按事情大小选，不求全）；同时进行的事别太多，避免验收全堆到一个人身上。
 
 ## 输出模板
 
@@ -51,3 +52,6 @@ metadata:
 - `references/execution-pipeline.md`：implementation plan、worktree、review roles。
 - `references/checklists.md`：计划和 PR readiness checklist。
 - `references/stage-playbook.md`：Stage 5 及相邻阶段判断。
+- `references/delivery-gates.md`：负责人、验收人分工与交付前检查。
+- `references/verification-methods.md`：按事情大小选验证方法。
+- `references/output-contracts.md`：对人表达规则与“开工前”输出。

@@ -21,10 +21,12 @@ def package_dir() -> Path:
 def default_skill_roots(target: str) -> list[Path]:
     home = Path.home()
     destinations: list[Path] = []
-    if target in {"codex", "both"}:
+    if target in {"codex", "both", "all"}:
         destinations.append(home / ".codex/skills")
-    if target in {"agents", "both"}:
+    if target in {"agents", "both", "all"}:
         destinations.append(home / ".agents/skills")
+    if target in {"claude", "all"}:
+        destinations.append(home / ".claude/skills")
     return destinations
 
 
@@ -160,9 +162,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--target",
-        choices=["codex", "agents", "both"],
+        choices=["codex", "agents", "claude", "both", "all"],
         default="both",
-        help="Destination skill directory group.",
+        help="Destination skill directory group. both = codex + agents; all = codex + agents + claude.",
     )
     parser.add_argument(
         "--layout",

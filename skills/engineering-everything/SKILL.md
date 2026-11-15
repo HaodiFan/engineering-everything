@@ -2,7 +2,7 @@
 name: engineering-everything
 description: Use when a task needs engineering-route judgment before choosing product definition, project inheritance, architecture, execution, build, refactor, review, release, organization, automation, or skill-evolution work.
 metadata:
-  version: 0.13.0
+  version: 0.14.0
 ---
 
 # Engineering Everything / 工程化万物
@@ -20,6 +20,16 @@ Engineering Everything 是主路由 Skill。它不承载所有场景细节，只
 规划类回答必须使用 `references/output-contracts.md` 的规划 / 路由输出契约。不能只说“用了 Engineering Everything”；必须把关键判断和已读取的 reference 对上，至少覆盖路由、阶段、项目形态、验证门禁这 4 类判断。未读取的候选 reference 不要伪装成依据。
 
 执行类回答收尾必须包含：变更文件 / 已运行验证 / 未运行检查及原因 / 剩余风险。
+
+## 交付三关口
+
+团队交付一件事时，只在三个时刻停下来（`references/delivery-gates.md`）：
+
+- **开工前想清楚**：负责人把一句话需求变成一页需求卡 -> `engineering-product-definition`，需要拆分时 `engineering-execution-planning`。
+- **交付前确认做对了**：先看业务问题有没有解决，再看功能、体验和工程底线 -> `engineering-review-release`。
+- **交付后看学到了什么**：多数情况不需要沉淀；值得记下时 -> `engineering-skill-evolution`。
+
+其余时间正常路由、正常干活。任务越小流程越轻；对人说话按 `references/output-contracts.md` 的“对人表达”：先结论、业务语言、只说相关的。公司自己的案例和配置不在本仓库，按需加载，没加载就说一句。
 
 ## 子 Skill 路由
 
@@ -53,4 +63,5 @@ Engineering Everything 是主路由 Skill。它不承载所有场景细节，只
 - 源仓库的 `data/routes.yaml` 是机器可读路由 seed。
 - `references/output-contracts.md` 是规划、执行、review 和 eval 输出契约。
 - 源仓库的旧版 route map 仅作为 legacy/source 校准；运行时 route seed 已指向子 skill。
+- `references/delivery-gates.md`：团队交付的三个关口、改动大小、什么时候找人拍板、公司私有内容的边界。
 - 源仓库的 `references/self-evolution-harness.md` 定义 GitHub lesson issue-first 的自进化门禁。

@@ -8,6 +8,12 @@ Wrapper harness migrations are recorded under `.evozeus-wrapper/docs/migrations/
 
 ### Skill changes
 
+- Dev SkillOS (`0.14.0`): added the three-gate delivery lifecycle (Intent / Quality / Evolution) for team tasks in `references/delivery-gates.md`, with L0-L3 authorization, decision escalation, a fixed Gate 2 flow (D / G0-G4 / CR / R) and the public-core vs private-assets boundary.
+- Added `references/verification-methods.md`: a trigger-based catalog of mature verification methods (TLA+/TLC and P, property-based testing, Pact, mutation testing, Playwright, Bombadil, axe-core, visual regression, PRR, staged rollout, DORA).
+- Added schemas for intent card, evidence package, decision escalation, evolution candidate and project gate profile, plus `scripts/gate_check.py` (conservative releasability check) and tests.
+- Wired the gates into the router, bootloader, product-definition, execution-planning, build-verify, architecture-design, review-release and skill-evolution skills; extended `output-contracts.md` with Gate 1/2/3 fields; added three behavior eval scenarios.
+- `scripts/install.py` gained `--target claude` and `--target all`.
+- Business-first rewrite after owner review ("too technical, too rigid"): gates are now described as 想清楚 / 确认做对了 / 学到了什么 in plain business language; internal codes (G0-G4, L0-L3, PASS/BLOCKED) are confined to evidence files; added the "对人表达" rules (conclusion first, only relevant items, length proportional to the task) that apply to all outputs; Gate output fields renamed to 档位 / 需要拍板的事 / 交付结论 / 证据 / 上线准备 / 沉淀结论; verification catalog gained business validation (demo, user trials, data reconciliation, post-release business metrics) and business-side release readiness.
 - Upgraded the managed EvoZeus-CoEvolve Harness from `v0.12.1` to `v0.15.0`.
 - Added the canonical Harness Skill, notice policy, migration contract, and wrapper notice renderer.
 - Replaced the legacy wrapper prelude with one canonical activation block while preserving the Engineering Everything business flow.
