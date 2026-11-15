@@ -6,6 +6,10 @@ Wrapper harness migrations are recorded under `.evozeus-wrapper/docs/migrations/
 
 ## [Unreleased]
 
+- Release `v0.15.1`: moved the entries below under the version header and added `release-notes-v0.15.1.md`.
+
+## [v0.15.1] - 2026-11-16
+
 ### Skill changes
 
 - Fix (`0.15.1`): code review could not load its smell catalog. `code-review-standards.md` tells the agent to use `refactoring-rules.md`, but only `engineering-refactoring` shipped it, so reviews from `engineering-review-release` and eight other skills silently skipped it. `refactoring-rules.md` now ships wherever the review standards do, and `engineering-review-release` lists it explicitly.
