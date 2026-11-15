@@ -2,7 +2,7 @@
 name: using-engineering-everything
 description: Use when starting, resuming, or switching an Engineering Everything session before selecting the kernel router or a direct engineering sub-skill.
 metadata:
-  version: 0.15.1
+  version: 0.16.0
 ---
 
 <!-- evozeus-harness-entry:v1 -->

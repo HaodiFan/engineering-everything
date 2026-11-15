@@ -2,7 +2,7 @@
 name: engineering-automation-playbooks
 description: Use when designing or implementing RPA, OCR, CV, LLM production pipelines, browser automation, data governance, analytics reporting, or POC/spike automation.
 metadata:
-  version: 0.15.1
+  version: 0.16.0
 ---
 
 # Engineering Automation Playbooks / 自动化场景

@@ -2,7 +2,7 @@
 name: engineering-refactoring
 description: Use when refactoring, cleaning up, modularizing, renaming, reducing technical debt, or preserving behavior while improving structure.
 metadata:
-  version: 0.15.1
+  version: 0.16.0
 ---
 
 # Engineering Refactoring / 重构治理
@@ -54,3 +54,4 @@ metadata:
 - `references/checklists.md`：每个重构 PR 收尾时。
 - `references/execution-pipeline.md`：要拆 PR 或安排 review 时。
 - `references/stage-playbook.md`：拿不准是否属于维护阶段时。
+- `references/react-doctor.md`：重构 React 代码，要在改动前后对比问题数量时。
