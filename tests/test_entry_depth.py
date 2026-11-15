@@ -65,6 +65,21 @@ class EntryDepthTests(unittest.TestCase):
         listed = set(re.findall(r"\| `(engineering-[a-z-]+)` \|", (ROOT / "skills/engineering-everything/SKILL.md").read_text(encoding="utf-8")))
         self.assertEqual(self.doctor.route_skill_names(ROOT) - {"engineering-everything"}, listed)
 
+    def test_every_sub_skill_says_where_unshipped_references_live(self) -> None:
+        findings = []
+        self.doctor.check_reference_resolution(ROOT, findings)
+        self.assertEqual([], [f.message for f in findings])
+
+    def test_unresolvable_reference_is_reported(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            skill = Path(temp) / "engineering-x"
+            (skill / "references").mkdir(parents=True)
+            (skill / "SKILL.md").write_text("读取 `references/gone.md`。\n", encoding="utf-8")
+            (skill / "references/a.md").write_text("见 `references/b.md`\n", encoding="utf-8")
+            missing = self.doctor.unresolved_reference_names(skill, {"b.md"})
+            self.assertEqual(["SKILL.md -> gone.md"], missing)
+
 
 if __name__ == "__main__":
     unittest.main()

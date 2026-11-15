@@ -2,7 +2,7 @@
 name: engineering-everything
 description: Use when a task needs engineering-route judgment before choosing product definition, project inheritance, architecture, execution, build, refactor, review, release, organization, automation, or skill-evolution work.
 metadata:
-  version: 0.15.0
+  version: 0.15.1
 ---
 
 # Engineering Everything / 工程化万物
@@ -66,6 +66,8 @@ metadata:
 - 需要 owner 拍板的事（license、发布、合规边界、公开 API 破坏性变更）不自己定。
 
 ## 参考文件（用到时再读）
+
+本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
 | 文件 | 什么时候读 |
 |---|---|

@@ -31,6 +31,8 @@ entries:
       - engineering-review-release
   - source: code-review-standards.md
     mode: exact-copy
+    requires:
+      - refactoring-rules.md
     targets:
       - engineering-architecture-design
       - engineering-automation-playbooks
@@ -115,7 +117,15 @@ entries:
   - source: refactoring-rules.md
     mode: exact-copy
     targets:
+      - engineering-architecture-design
+      - engineering-automation-playbooks
+      - engineering-build-verify
+      - engineering-execution-planning
+      - engineering-organization-systems
+      - engineering-product-definition
+      - engineering-project-inheritance
       - engineering-refactoring
+      - engineering-review-release
   - source: route-contract.md
     mode: exact-copy
     targets:

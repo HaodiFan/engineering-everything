@@ -69,6 +69,35 @@ class SyncReferencesTests(unittest.TestCase):
 
             self.assertTrue(any("undeclared runtime reference copy" in error for error in errors))
 
+    def test_required_reference_must_ship_with_dependent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            write_valid_fixture(root)
+            (root / "references/rules.md").write_text("rules\n", encoding="utf-8")
+            manifest = """canonical_root: references
+entries:
+  - source: foo.md
+    mode: exact-copy
+    requires:
+      - rules.md
+    targets:
+      - example
+  - source: rules.md
+    mode: exact-copy
+    targets: []
+"""
+            (root / "data/reference_distribution.yaml").write_text(manifest.replace("    targets: []\n", "    status: canonical\n    targets: []\n"), encoding="utf-8")
+            errors = self.sync.check_distribution(root)
+            self.assertTrue(any("requires rules.md, but skill example does not ship it" in e for e in errors), errors)
+
+            (root / "data/reference_distribution.yaml").write_text(manifest.replace("    targets: []\n", "    targets:\n      - example\n"), encoding="utf-8")
+            (root / "skills/example/references/rules.md").write_text("rules\n", encoding="utf-8")
+            self.assertEqual([], self.sync.check_distribution(root))
+
+    def test_review_skill_ships_smell_catalog(self) -> None:
+        self.assertTrue((ROOT / "skills/engineering-review-release/references/refactoring-rules.md").exists())
+        self.assertEqual([], self.sync.check_distribution(ROOT))
+
 
 if __name__ == "__main__":
     unittest.main()

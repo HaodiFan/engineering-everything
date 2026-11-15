@@ -2,7 +2,7 @@
 name: engineering-review-release
 description: Use when reviewing code, PRs, merge readiness, CI failures, release risk, rollback plans, or deciding whether a change is safe to ship.
 metadata:
-  version: 0.15.0
+  version: 0.15.1
 ---
 
 # Engineering Review Release / Review 与发布
@@ -52,7 +52,10 @@ Residual risk:
 
 ## References（用到时再读）
 
+本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
+
 - `references/code-review-standards.md`：做代码评审时。
+- `references/refactoring-rules.md`：代码评审时一起读，用它的坏味道规则库识别问题、给出改法和是否阻塞合并。
 - `references/delivery-gates.md`：团队交付，要下“能不能交付”结论或做上线准备时。
 - `references/verification-methods.md`：要挑验证方法、判断证据够不够时。
 - `references/checklists.md`：PR 合并或发布前自查时。

@@ -21,6 +21,7 @@ class Entry:
     status: str | None
     owner: str | None
     targets: list[str]
+    requires: list[str]
 
 
 def repo_root() -> Path:
@@ -97,6 +98,7 @@ def load_manifest(path: Path) -> tuple[str, list[Entry]]:
             status=str(entry["status"]) if "status" in entry else None,
             owner=str(entry["owner"]) if "owner" in entry else None,
             targets=list(entry.get("targets", [])) if isinstance(entry.get("targets", []), list) else [],
+            requires=list(entry.get("requires", [])) if isinstance(entry.get("requires", []), list) else [],
         )
         for entry in entries
     ]
@@ -174,6 +176,17 @@ def check_distribution(root: Path) -> list[str]:
             if entry.status not in ALLOWED_ROOT_ONLY_STATUSES:
                 errors.append(f"root-only source {entry.source} must declare status canonical or legacy")
             root_only_sources.add(entry.source)
+
+    # A reference that depends on another (e.g. review standards -> smell catalog)
+    # must never ship without it.
+    targets_by_source = {entry.source: set(entry.targets) for entry in entries}
+    for entry in entries:
+        for required in entry.requires:
+            if required not in targets_by_source:
+                errors.append(f"{entry.source} requires undeclared source {required}")
+                continue
+            for target in sorted(set(entry.targets) - targets_by_source[required]):
+                errors.append(f"{entry.source} requires {required}, but skill {target} does not ship it")
 
     for root_source in sorted(root_references - declared_sources):
         errors.append(f"unclassified root reference: references/{root_source}")
