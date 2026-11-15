@@ -256,7 +256,7 @@ python3 -m unittest discover -s tests
 - 当前版本：`0.16.0`
 - GitHub repo：`HaodiFan/engineering-everything`
 - Runtime layout：plugin-first, `skills/*/SKILL.md`
-- Latest release：`v0.15.1`（修复：代码评审读不到坏味道规则库）
+- Latest release：`v0.16.0`（UI/UX 界面评判 + React Doctor 接入代码评审）
 - License：`UNLICENSED`
 
 ## Uninstall

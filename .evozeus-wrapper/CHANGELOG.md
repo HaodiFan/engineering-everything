@@ -6,6 +6,10 @@ Wrapper harness migrations are recorded under `.evozeus-wrapper/docs/migrations/
 
 ## [Unreleased]
 
+- Release `v0.16.0`: moved the entries below under the version header and added `release-notes-v0.16.0.md`.
+
+## [v0.16.0] - 2026-11-16
+
 ### Skill changes
 
 - New sub-skill `engineering-ui-ux-audit` (`0.16.0`): rule-based UI/UX review imported from the owner's `ui-ux-audit` skill — 69 numbered rules, each with trigger, boundary, evidence, severity, fix and re-check; findings are 通过 / 不通过 / 不适用 / 未验证, no aesthetic scores, and anything a screenshot cannot prove is marked unverified. References ship as `ui-ux-*.md`. New route `ui-ux-audit` (aliases `/ui-audit`, `/ux-review`), router table row, and the review skill hands "用起来顺吗 / 看起来对吗" to it during delivery gates.
