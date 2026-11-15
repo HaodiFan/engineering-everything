@@ -230,7 +230,7 @@ Milestone 4: tests and docs
 - 未运行检查及原因
 - 剩余风险
 - **更新 `docs/memory-bank/active-context.md`**（agent 协作项目）：写已完成 / 进行中 / 下一步 / 给下一会话留言。
-- **检查是否要 capture lesson**：本轮对话有没有触发捕获信号（用户说"不对/应该是/错了/我之前是/不要 X 要 Y"）？有 → 用 `prompts-guide.md` 的 capture-lesson 流程追加到 `references/lessons.md`。详见 SKILL.md「Knowhow 沉淀规则」。
+- **检查是否要 capture lesson**：本轮对话有没有触发捕获信号（用户说"不对/应该是/错了/我之前是/不要 X 要 Y"）？有 → 先修正当前结果，再问用户是否创建 GitHub lesson issue；确认后交给 `engineering-skill-evolution`，不直接写 lessons。
 
 停止条件：
 
@@ -277,7 +277,7 @@ Milestone 4: tests and docs
 - feature 完成 → 把 design doc 从 `active/` 移到 `done/`，回填 `Validation Results`。
 - 更新 `docs/memory-bank/active-context.md`（agent 协作项目）：标 PR 状态。
 - 总结 why、what、risk、validation。
-- **PR 前最后一道 knowhow 检查**：本次开发周期内累计的 lesson 候选是否都已写入 `references/lessons.md`？同主题 lesson ≥ 2 条的是否要走 promote-pattern？详见 SKILL.md「Knowhow 沉淀规则」与 `prompts-guide.md` 的 promote-pattern。
+- **PR 前最后一道 knowhow 检查**：本次开发周期内用户确认要记的 lesson 是否都已建 GitHub lesson issue？要 promote 成 pattern 的交给 `engineering-skill-evolution`。
 
 PR body：
 
@@ -310,7 +310,7 @@ PR body：
 - 若边界变化，更新 folder declaration 或 architecture docs；架构方向调整需补 ADR。
 - 重构不得绕开 `CONSTITUTION.md` 红线（不能借"清理"之名移除 audit、绕鉴权、合并 truth source 等）。
 - 重构发现"项目特定写法"或"已多次踩的坑" → 沉淀到 `docs/memory-bank/patterns.md`（见 `memory-bank-guide.md`）。
-- 重构发现的"跨项目可复用纠偏"（不是项目特定的） → 沉淀到 skill 级 `references/lessons.md`（L1），多次命中后 promote 到 `references/patterns-skill.md`（L2）。
+- 重构发现的"跨项目可复用纠偏"（不是项目特定的） → 沉淀到 skill 级 `lessons.md`（源仓库，由 engineering-skill-evolution 维护）（L1），多次命中后 promote 到 `patterns-skill.md`（源仓库）（L2）。
 - 没有目标架构文档时，避免大范围重写。
 
 停止条件：

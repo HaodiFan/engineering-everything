@@ -8,6 +8,10 @@ Wrapper harness migrations are recorded under `.evozeus-wrapper/docs/migrations/
 
 ### Skill changes
 
+- Flattened the entry path (`0.15.0`): the bootloader is now a thin hand-off (session resume + go to the router) with no references of its own; the router is the single file to read before work and carries the route table, hard rules and the five "对人表达" rules inline; every sub-skill reference now states when to read it. Before: ~10 required reads across 4 hops; after: router + sub-skill, references on demand.
+- Removed ~10k lines of duplicated runtime references: `lessons.md` and `patterns-skill.md` now ship only with `engineering-skill-evolution`, `prompts-guide.md` only where projects get scaffolded, `codex-tools.md` is root-only (folded into the router), `route-contract.md` moved to the router. Shared references point at lessons by name and route lesson capture to issue-first.
+- Moved the EvoZeus-CoEvolve release-loop governance from the bootloader into `engineering-skill-evolution`; added a note that the harness activation path is relative to the source repo root (the block itself is harness-owned and unchanged).
+- `skill_doctor.py` gained an entry-depth check (no up-front reference reads in the entry files, every listed reference says when to read it, router table matches `data/routes.yaml`), with tests.
 - Dev SkillOS (`0.14.0`): added the three-gate delivery lifecycle (Intent / Quality / Evolution) for team tasks in `references/delivery-gates.md`, with L0-L3 authorization, decision escalation, a fixed Gate 2 flow (D / G0-G4 / CR / R) and the public-core vs private-assets boundary.
 - Added `references/verification-methods.md`: a trigger-based catalog of mature verification methods (TLA+/TLC and P, property-based testing, Pact, mutation testing, Playwright, Bombadil, axe-core, visual regression, PRR, staged rollout, DORA).
 - Added schemas for intent card, evidence package, decision escalation, evolution candidate and project gate profile, plus `scripts/gate_check.py` (conservative releasability check) and tests.

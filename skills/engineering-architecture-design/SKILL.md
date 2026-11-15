@@ -2,7 +2,7 @@
 name: engineering-architecture-design
 description: Use when choosing technical architecture, project shape, stack, data source, boundaries, deployment model, AI/Agent architecture, or scaffold strategy.
 metadata:
-  version: 0.14.0
+  version: 0.15.0
 ---
 
 # Engineering Architecture Design / 架构设计
@@ -47,12 +47,13 @@ metadata:
 - 只凭流行技术选型，无法解释代价和退出成本。
 - 没有 spec，却要新增状态机、存储、权限或公共 API。
 
-## References
+## References（用到时再读）
 
-- `references/architecture-cases.md`：通用架构选型。
-- `references/architecture-cases-ai.md`：AI / Agent 专项架构。
-- `references/app-for-agent-design-paradigm.md`：给 agent 操作的 app 设计范式。
-- `references/project-blueprints.md`：项目形态 starter。
-- `references/templates-governance.md`：ADR / CONSTITUTION 等治理模板。
-- `references/checklists.md`：架构和发布前 checklist。
-- `references/verification-methods.md`：设计验证什么时候值得做。
+- `references/architecture-cases.md`：要做通用架构选型、比较方案时。
+- `references/architecture-cases-ai.md`：涉及 AI / Agent 架构时。
+- `references/app-for-agent-design-paradigm.md`：要设计给 agent 操作的 app 时。
+- `references/project-blueprints.md`：要按项目形态起脚手架时。
+- `references/templates-governance.md`：要写 ADR / CONSTITUTION 时。
+- `references/prompts-guide.md`：要初始化项目的 `docs/prompts/` 时。
+- `references/checklists.md`：架构定稿或发布前自查时。
+- `references/verification-methods.md`：重要改动涉及并发、状态机、权限流转，考虑做设计验证时。

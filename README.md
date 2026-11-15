@@ -2,7 +2,7 @@
 
 用工程思维路由创造型任务：先判断需求、架构、执行、验证、发布和沉淀路径，再让 agent 动手。
 
-- 当前版本：`0.14.0`
+- 当前版本：`0.15.0`
 - Package ID：`engineering-everything`
 - License：`UNLICENSED`
 
@@ -10,8 +10,8 @@
 
 Engineering Everything 是一个 plugin-first Skill library。它不是单个大 prompt，也不是把所有规则塞进一个入口；运行时入口只在 `skills/*/SKILL.md` 下：
 
-- `$using-engineering-everything`：推荐入口，负责新会话、resume、任务切换和进入主路由前的 bootloader 判断。
-- `$engineering-everything`：直达主路由，负责工程路由、阶段判断、项目形态判断和子 Skill 选择。
+- `$using-engineering-everything`：推荐入口。很薄的 bootloader，只管要不要进入、会话怎么接上，然后交给主路由。
+- `$engineering-everything`：主路由，也是唯一要先读的文件：路由表、不可突破的规则、对人表达规则都在这里，判断完直接进子 Skill。
 - `engineering-*` 子 Skill：分别处理产品定义、架构、执行规划、构建验证、重构、review/release、自动化、组织系统、项目接手和 Skill 自进化。
 
 它解决的问题很直接：agent 不应该在需求未清、数据源未明、验证门禁不存在、旧项目未盘点时就开始写代码或搭架构。
@@ -46,8 +46,9 @@ review 这个 PR，判断能不能 merge。
 
 ```mermaid
 flowchart LR
-  A["User task"] --> B["using-engineering-everything<br/>bootloader"]
-  B --> C["engineering-everything<br/>kernel router"]
+  A["User task"] -.-> B["using-engineering-everything<br/>thin bootloader"]
+  A --> C["engineering-everything<br/>router"]
+  B --> C
   C --> D["Product / Spec"]
   C --> E["Architecture"]
   C --> F["Execution Plan"]
@@ -58,6 +59,8 @@ flowchart LR
   C --> K["Organization / Project Ops"]
   C --> L["Skill Evolution"]
 ```
+
+从入口到开始干活只走两跳：主路由 → 子 Skill。开工前不预读参考文件；每个子 Skill 的参考文件都写明“什么时候读”，`scripts/skill_doctor.py` 会检查入口没有预读、参考文件都有读取条件、主路由的表和 `data/routes.yaml` 一致。
 
 路由事实源是 `data/routes.yaml`。输出契约事实源是 `references/output-contracts.md`。不要在 README 或 Skill 正文里维护第二套路由表或输出模板。
 
@@ -244,10 +247,10 @@ python3 -m unittest discover -s tests
 
 ## Status
 
-- 当前版本：`0.14.0`
+- 当前版本：`0.15.0`
 - GitHub repo：`HaodiFan/engineering-everything`
 - Runtime layout：plugin-first, `skills/*/SKILL.md`
-- Recommended next release：`v0.14.0`（开发 SkillOS 三关口）
+- Recommended next release：`v0.15.0`（入口扁平化，含 0.14.0 开发 SkillOS 三关口）
 - License：`UNLICENSED`
 
 ## Uninstall

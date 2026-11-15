@@ -2,7 +2,7 @@
 name: engineering-organization-systems
 description: Use when engineering an organization, company mechanism, SOP, onboarding, interview process, non-software project, WBS, estimate, workspace, knowledge base, table, or document-led operating system.
 metadata:
-  version: 0.14.0
+  version: 0.15.0
 ---
 
 # Engineering Organization Systems / 组织系统工程
@@ -46,9 +46,9 @@ metadata:
 - 产出面向外部，却包含内部语言、未审核状态或推测。
 - 人天/成本缺单价、角色配置、范围或验收标准。
 
-## References
+## References（用到时再读）
 
-- `references/engineering-scenarios.md`：面试、入职、组织/SOP、项目估算、非软件产物。
-- `references/templates-core.md`：README / DEVELOPMENT / AGENTS 等核心模板。
-- `references/templates-specs.md`：需求和方案模板。
-- `references/checklists.md`：组织、项目和产物验证 checklist。
+- `references/engineering-scenarios.md`：进入面试、入职、组织/SOP、估算或非软件产物场景时。
+- `references/templates-core.md`：要写 README / DEVELOPMENT / AGENTS 时。
+- `references/templates-specs.md`：要写需求或方案文档时。
+- `references/checklists.md`：产物交付前自查时。

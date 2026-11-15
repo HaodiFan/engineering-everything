@@ -26,7 +26,7 @@ must_not:
 forbidden_skill_ids:
   - engineering-build-verify
 expected_references:
-  - skills/using-engineering-everything/references/output-contracts.md
+  - skills/engineering-everything/SKILL.md
 stop_condition: "数据源和合规边界未确认前，不进入实现。"
 ---
 

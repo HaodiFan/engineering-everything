@@ -42,9 +42,9 @@ entries:
       - engineering-refactoring
       - engineering-review-release
   - source: codex-tools.md
-    mode: exact-copy
-    targets:
-      - using-engineering-everything
+    status: canonical
+    owner: root-reference-library/maintainer-tools
+    targets: []
   - source: delivery-gates.md
     mode: exact-copy
     targets:
@@ -81,16 +81,6 @@ entries:
   - source: lessons.md
     mode: exact-copy
     targets:
-      - engineering-architecture-design
-      - engineering-automation-playbooks
-      - engineering-build-verify
-      - engineering-everything
-      - engineering-execution-planning
-      - engineering-organization-systems
-      - engineering-product-definition
-      - engineering-project-inheritance
-      - engineering-refactoring
-      - engineering-review-release
       - engineering-skill-evolution
   - source: memory-bank-guide.md
     status: canonical
@@ -104,20 +94,9 @@ entries:
       - engineering-product-definition
       - engineering-review-release
       - engineering-skill-evolution
-      - using-engineering-everything
   - source: patterns-skill.md
     mode: exact-copy
     targets:
-      - engineering-architecture-design
-      - engineering-automation-playbooks
-      - engineering-build-verify
-      - engineering-everything
-      - engineering-execution-planning
-      - engineering-organization-systems
-      - engineering-product-definition
-      - engineering-project-inheritance
-      - engineering-refactoring
-      - engineering-review-release
       - engineering-skill-evolution
   - source: project-blueprints.md
     mode: exact-copy
@@ -127,14 +106,7 @@ entries:
     mode: exact-copy
     targets:
       - engineering-architecture-design
-      - engineering-automation-playbooks
-      - engineering-build-verify
-      - engineering-execution-planning
-      - engineering-organization-systems
-      - engineering-product-definition
       - engineering-project-inheritance
-      - engineering-refactoring
-      - engineering-review-release
       - engineering-skill-evolution
   - source: psps-framework.md
     mode: exact-copy
@@ -147,7 +119,7 @@ entries:
   - source: route-contract.md
     mode: exact-copy
     targets:
-      - using-engineering-everything
+      - engineering-everything
   - source: scenario-playbooks.md
     mode: exact-copy
     targets:
@@ -155,7 +127,6 @@ entries:
   - source: self-evolution-harness.md
     mode: exact-copy
     targets:
-      - engineering-everything
       - engineering-skill-evolution
   - source: spec-templates.md
     mode: exact-copy

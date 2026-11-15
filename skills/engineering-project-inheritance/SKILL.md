@@ -2,7 +2,7 @@
 name: engineering-project-inheritance
 description: Use when taking over an existing repository, auditing an old project, deciding whether to refactor, or planning how to continue work from current code and documents.
 metadata:
-  version: 0.14.0
+  version: 0.15.0
 ---
 
 # Engineering Project Inheritance / 接手已有项目
@@ -53,6 +53,6 @@ metadata:
 - 删除 TODO/FIXME/HACK 来制造“干净”。
 - 跳过业务 owner 同步，只凭代码判断业务意图。
 
-## References
+## References（用到时再读）
 
-- `references/inheriting-projects.md`：完整盘点 checklist、现状报告模板和路径选择规则。
+- `references/inheriting-projects.md`：开始盘点时就读：完整盘点清单、现状报告模板和路径选择。

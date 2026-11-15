@@ -2,7 +2,7 @@
 name: engineering-product-definition
 description: Use when clarifying or reviewing a product idea, PRD, requirements, PSPS, user scenario, scope, non-goals, or success criteria, finding gaps and recommending decisions for user confirmation before architecture or implementation.
 metadata:
-  version: 0.14.0
+  version: 0.15.0
 ---
 
 # Engineering Product Definition / 产品定义
@@ -53,12 +53,12 @@ metadata:
 - P0 范围无法形成可验收闭环。
 - 审查结论或业务取舍尚未得到用户明确确认；此时可继续查证和完善建议，保持在需求审查阶段。
 
-## References
+## References（用到时再读）
 
-- `references/psps-framework.md`：PSPS 构建洞察框架。
-- `references/spec-templates.md`：需求、Design Doc 和模板路由。
-- `references/templates-specs.md`：Requirements / Design Doc 具体模板。
-- `references/checklists.md`：需求完备性与验证 checklist。
-- `references/stage-playbook.md`：Stage 0-2 阶段判断。
-- `references/delivery-gates.md`：需求卡、改动大小、什么时候找人拍板。
-- `references/output-contracts.md`：对人表达规则与“开工前”输出。
+- `references/delivery-gates.md`：团队任务，要写需求卡、定档位、判断要不要找人拍板时。
+- `references/psps-framework.md`：需求模糊，要用 PSPS 挖洞察时。
+- `references/spec-templates.md`：要选需求 / Design Doc 模板时。
+- `references/templates-specs.md`：要按模板写正式文档时。
+- `references/stage-playbook.md`：拿不准处于 0-2 哪个阶段时。
+- `references/checklists.md`：需求定稿前自查完备性时。
+- `references/output-contracts.md`：要写正式的“开工前”输出时。

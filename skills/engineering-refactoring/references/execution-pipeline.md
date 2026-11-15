@@ -240,15 +240,15 @@ Review 不等于只看代码。按变更类型选择必要角色；高风险变�
 | 层级 | 文件 | 写什么 | 不写什么 |
 |---|---|---|---|
 | 项目级 Memory | `docs/memory-bank/patterns.md` / `active-context.md` | 该项目的约定、坑、当前焦点 | 跨项目方法论 |
-| Skill L1 Lesson | `references/lessons.md` | 用户纠偏出的跨项目 knowhow | 单项目偏好、secret、客户名 |
-| Skill L2 Pattern | `references/patterns-skill.md` | 多次验证后的通用模式 | 未验证猜测 |
+| Skill L1 Lesson | `lessons.md`（源仓库，由 engineering-skill-evolution 维护） | 用户纠偏出的跨项目 knowhow | 单项目偏好、secret、客户名 |
+| Skill L2 Pattern | `patterns-skill.md`（源仓库） | 多次验证后的通用模式 | 未验证猜测 |
 | Reference Canon | `references/` 下的稳定文档 | 稳定方法论和默认选型 | 临时经验、单次纠偏 |
 
 收尾时按这个顺序处理：
 
 1. 项目状态变化 → 更新 `active-context.md`。
 2. 项目专属经验 → 提议写 `docs/memory-bank/patterns.md`。
-3. 跨项目纠偏 → 提议写 `references/lessons.md`。
+3. 跨项目纠偏 → 提议写 `lessons.md`（源仓库，由 engineering-skill-evolution 维护）。
 4. 多次复用的 lesson → 提议 promote 到 `patterns-skill.md`。
 5. 稳定 pattern 改变默认方法论 → 开 PR 升级 reference。
 

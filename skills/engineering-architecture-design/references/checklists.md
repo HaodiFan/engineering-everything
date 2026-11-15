@@ -405,7 +405,7 @@ agent / 开发者发现自己的实现**会**触线时：
 
 ## Skill Knowhow Hygiene Checklist（每次会话末，agent 自检）
 
-> 让 skill 自我进化：用户每次不满意或纠偏都先被提示是否创建 GitHub lesson issue；创建 issue 只做 intake，不改 runtime 文件。issue 确认进入 runtime 后，才通过 PR/commit 写入 `references/lessons.md`（L1）。多条同主题 lesson 合并到 `references/patterns-skill.md`（L2）；pattern 验证够多后开 PR 升级到对应 reference（L3）。详见 SKILL.md「Knowhow 沉淀规则」。
+> 让 skill 自我进化：用户每次不满意或纠偏都先被提示是否创建 GitHub lesson issue；创建 issue 只做 intake，不改 runtime 文件。issue 确认进入 runtime 后，才通过 PR/commit 写入 `lessons.md`（源仓库，由 engineering-skill-evolution 维护）（L1）。多条同主题 lesson 合并到 `patterns-skill.md`（源仓库）（L2）；pattern 验证够多后开 PR 升级到对应 reference（L3）。详见 SKILL.md「Knowhow 沉淀规则」。
 
 ### 会话开始时
 

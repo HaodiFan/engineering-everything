@@ -2,7 +2,7 @@
 name: engineering-review-release
 description: Use when reviewing code, PRs, merge readiness, CI failures, release risk, rollback plans, or deciding whether a change is safe to ship.
 metadata:
-  version: 0.14.0
+  version: 0.15.0
 ---
 
 # Engineering Review Release / Review 与发布
@@ -50,12 +50,12 @@ Residual risk:
 - 用户要求“批准”但缺运行时验证，只能做静态 review。
 - 发现 P0/P1 行为风险、数据风险或安全风险未处理。
 
-## References
+## References（用到时再读）
 
-- `references/code-review-standards.md`：代码审查口径。
-- `references/checklists.md`：PR readiness 与发布 checklist。
-- `references/execution-pipeline.md`：review roles 和 release gates。
-- `references/stage-playbook.md`：Stage 7-8 判断。
-- `references/delivery-gates.md`：交付前怎么确认做对了、怎么下结论、上线准备。
-- `references/verification-methods.md`：成熟验证方法，什么时候用、局限是什么。
-- `references/output-contracts.md`：对人表达规则与“交付前”输出。
+- `references/code-review-standards.md`：做代码评审时。
+- `references/delivery-gates.md`：团队交付，要下“能不能交付”结论或做上线准备时。
+- `references/verification-methods.md`：要挑验证方法、判断证据够不够时。
+- `references/checklists.md`：PR 合并或发布前自查时。
+- `references/execution-pipeline.md`：要安排 review 角色或发布门禁时。
+- `references/stage-playbook.md`：拿不准处于 7-8 哪个阶段时。
+- `references/output-contracts.md`：要写正式的 review 或“交付前”输出时。

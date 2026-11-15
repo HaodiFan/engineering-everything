@@ -268,7 +268,7 @@ def check_skill_library(root: Path, package: Path, version: str | None, findings
                 "error",
                 f"{safe_relative(skill_package / 'SKILL.md', root)} version {skill_version} != plugin package version {version}",
             )
-        if skill_package.name != SKILL_NAME and not list((skill_package / "references").glob("*.md")):
+        if skill_package.name not in (SKILL_NAME, USING_SKILL_NAME) and not list((skill_package / "references").glob("*.md")):
             add(
                 findings,
                 "error",
@@ -590,6 +590,43 @@ def check_self_evolution_harness(package: Path, findings: list[Finding]) -> None
                 )
 
 
+HARNESS_BLOCK = re.compile(r"<!-- evozeus-harness-entry:v1 -->.*?<!-- /evozeus-harness-entry -->", re.DOTALL)
+EAGER_READ = re.compile(r"(MUST|必须|先|再)[^\n`]{0,12}读取[^\n]{0,20}`references/")
+
+
+def entry_depth_problems(skill_name: str, text: str) -> list[str]:
+    """Keep the path from entry to work short: entry files load no references up front,
+    and every reference a skill lists says when to read it."""
+    problems: list[str] = []
+    body = HARNESS_BLOCK.sub("", text)
+    if skill_name in (USING_SKILL_NAME, SKILL_NAME):
+        for line in body.splitlines():
+            if EAGER_READ.search(line):
+                problems.append(f"{skill_name}: entry must not require reading references up front: {line.strip()[:60]}")
+    if skill_name == USING_SKILL_NAME and "`references/" in body:
+        problems.append(f"{skill_name}: bootloader must hand off to {SKILL_NAME} without loading references")
+    section = re.search(r"^## (References|参考文件)[^\n]*\n(.*?)(?=^## |\Z)", body, re.MULTILINE | re.DOTALL)
+    if section:
+        for line in section.group(2).splitlines():
+            if "references/" in line and line.lstrip().startswith(("-", "|")) and not any(w in line for w in ("时", "就读")):
+                problems.append(f"{skill_name}: reference listed without when to read it: {line.strip()[:60]}")
+    return problems
+
+
+def check_entry_depth(package: Path, findings: list[Finding]) -> None:
+    for skill_package in skill_packages(package):
+        path = skill_package / "SKILL.md"
+        if path.exists():
+            for problem in entry_depth_problems(skill_package.name, read_text(path)):
+                add(findings, "error", problem)
+    router = package / "skills" / SKILL_NAME / "SKILL.md"
+    if router.exists():
+        listed = set(re.findall(r"\| `(engineering-[a-z-]+)` \|", read_text(router)))
+        routed = route_skill_names(package) - {SKILL_NAME}
+        if listed != routed:
+            add(findings, "error", f"router table drifted from data/routes.yaml: missing {sorted(routed - listed)}, extra {sorted(listed - routed)}")
+
+
 def run() -> tuple[list[Finding], Path, Path]:
     root = repo_root()
     package = skill_dir(root)
@@ -610,6 +647,7 @@ def run() -> tuple[list[Finding], Path, Path]:
     check_old_names(root, package, findings)
     check_json_schemas(package, findings)
     check_self_evolution_harness(package, findings)
+    check_entry_depth(package, findings)
     return findings, root, package
 
 
