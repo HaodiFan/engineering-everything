@@ -2,14 +2,14 @@
 name: engineering-review-release
 description: Use when reviewing code, PRs, merge readiness, CI failures, release risk, rollback plans, or deciding whether a change is safe to ship.
 metadata:
-  version: 0.17.0
+  version: 0.18.0
 ---
 
 # Engineering Review Release / Review 与发布
 
 默认 code-review 立场：问题先行，按严重度列 bugs、行为回归、坏味道、缺测试、安全与发布阻断。摘要永远次要。
 
-本 Skill 采用 **Script-Driven + 动态可配置 + 聚类维度 + HTML 可视化报告** 强控制链路（`scripts/review_runner.py` + `scripts/review_report_html.py` + `references/review-rules.md`）：默认基线聚类为 **3 个执行阶段、6 个正交 Review 维度、48 条原子规则（`RV-*`）**（UI 维度另接 70 条 `UX-*`），支持按公司/项目/CLI **动态叠加或裁剪配置**。脚本掌控进度、并发解锁、动态 Prompt 拼接、逐条 `checks[]` 交账、全程过程日志，并默认产出可读的 **`report.html`**（按维度讲清每个维度要优化什么）+ `report.md`。
+本 Skill 采用 **Script-Driven + 动态可配置 + 产品认知/用户旅程 + HTML 可视化报告** 强控制链路（`scripts/review_runner.py` + `scripts/review_report_html.py` + `references/review-rules.md` + `references/user-journey.md`）：默认基线聚类为 **3 个执行阶段、6 个正交 Review 维度、50 条原子规则（`RV-*`，含 L4/L5 产品认知与旅程规则 `RV-BIZ-05` / `RV-UI-05`）**（UI 维度另强制 14 组 70 条 `UX-*` 结构化覆盖），支持按公司/项目/CLI **动态叠加或裁剪配置**。脚本掌控进度、并发解锁、物理无源码盲测 Prompt、逐条 `checks[]` 交账、全程过程日志，并默认产出含“预期 vs 实际旅程对比”的 **`report.html`** + `report.md`。
 
 ## 何时使用
 
@@ -30,10 +30,10 @@ metadata:
    - 完成后在 `checks[]` 逐条交账并跑 `submit --run <run_dir> --lane engineering_baseline --input -` 落盘。**Phase 1 落盘前，Phase 2 锁死。**
 3. **阶段 2：四大核心维度并发深度评审（Phase 2，4 维度全部可并发）**：
    - 跑 `next --run <run_dir> --emit-prompts` 解锁并自动注入 Phase 1 证据，推荐派发独立只读 subagent 并发执行：
-     - **维度 2 `business_acceptance`**（`RV-BIZ-01`..`04`）：业务问题、需求卡 AC、主路径/边界端到端与反自嗨核对。
+     - **维度 2 `business_acceptance`**（`RV-BIZ-01`..`05`）：业务闭环、需求卡 AC 一手证据、负向路径，以及命中旅程/信息架构/新功能/异步工作流时激活的 `RV-BIZ-05`（先独立推导 Expected Journey 再对比实际路径，排查 `AP-01..08` 八大产品反模式；符合高频习惯的标准后台正常放行）。
      - **维度 3 `code_quality`**（`RV-REACT-01..02`[React 激活] + `RV-BUG-01..05` + `RV-TEST-01` + `RV-SMELL-01..10`）：React Doctor 变更扫描、正确性/边界/并发、测试防护与 10 条坏味道（联动 `references/refactoring-rules.md`）。
      - **维度 4 `security_architecture`**（`RV-SEC-01..05` + `RV-ARCH-01..04` + `RV-DX-01` + `RV-AI-01`）：安全脱敏与权限（不可豁免）、架构/红线/迁移、接口 DX 与 AI/自动化链路（按信号精准激活子规则）。
-     - **维度 5 `ui_ux_experience`**（`RV-BOMB-01..03` + `RV-UI-01..04` + 70 条 `UX-*`）：先按 `references/bombadil.md` 做状态探索判断与隔离有界运行（工具缺失/未隔离强制 `BLOCKED` 禁标 `N/A`），再委托 `engineering-ui-ux-audit` 做陌生语言自解释（`UX-VIS-09`）与 70 条逐项审计。
+     - **维度 5 `ui_ux_experience`**（`RV-UI-05`[旅程激活] + `RV-BOMB-01..03` + `RV-UI-01..04` + 14 组 70 条 `UX-*`）：命中旅程变更时先用脚本生成的物理隔离无源码盲测 Prompt（`ui_ux_experience.blind.md`）做 Blind User Walkthrough 记录 7 项观察点；再按 `references/bombadil.md` 做状态探索（工具缺失/未隔离强制 `BLOCKED` 禁标 `N/A`），并委托 `engineering-ui-ux-audit` 完成 `UX-VIS-09` 与 14 组 70 条 `UX-*` 结构化覆盖。
    - 以及叠加层注入的自定义维度或阶段（如 Phase 2.5 行业合规）。
 4. **阶段 3：上线发布准备与确定性总决（Phase 3 + `finalize`）**：
    - 命中发布/交付/L2+ 时先完成 **维度 6 `release_readiness`**（`RV-REL-01`..`03`：业务侧就绪、技术侧放量/监控/已验证回滚、PR/文档生命周期）。
@@ -83,8 +83,9 @@ Residual risk:
 
 本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
-- `references/review-rules.md`：查看 6 个聚类维度、48 条编号规则（`RV-*`）完整清单时就读。
+- `references/review-rules.md`：查看 6 个聚类维度、50 条编号规则（`RV-*`）完整清单时就读。
 - `references/review-pipeline.md`：执行脚本驱动的三阶段评审、配置叠加（overlay）、过程日志、HTML 报告渲染或增量复审时就读。
+- `references/user-journey.md`：涉及新功能、信息架构、工作台、跨角色或异步工作流，要做 Expected vs Actual Journey、8 大产品反模式或 Blind Walkthrough 时就读。
 - `references/code-review-standards.md`：做代码评审口径核对时。
 - `references/refactoring-rules.md`：命中 `RV-SMELL-*` 坏味道需要手法、前置测试和阻塞判断时。
 - `references/react-doctor.md`：评审或验收 React 项目时。

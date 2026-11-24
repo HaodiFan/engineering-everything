@@ -41,6 +41,231 @@ STATUS_META = {
     "PROMPT_ISSUED": ("进行中", "st-pending"),
 }
 
+ANTI_PATTERN_LABELS = [
+    ("AP-01", "模块驱动 UI"),
+    ("AP-02", "旅程碎片化"),
+    ("AP-03", "上下文丢失"),
+    ("AP-04", "步骤顺序错位"),
+    ("AP-05", "过早/盲目决策"),
+    ("AP-06", "下一步缺失"),
+    ("AP-07", "内部复杂/阻塞"),
+    ("AP-08", "高低频错位"),
+]
+
+UX_GROUP_LABELS = [
+    ("UX-META", "审计纪律", 5),
+    ("UX-FLOW", "任务流程", 3),
+    ("UX-IA", "导航位置", 5),
+    ("UX-VIS", "视觉布局", 9),
+    ("UX-TYPE", "排版文案", 6),
+    ("UX-COLOR", "颜色对比", 5),
+    ("UX-FORM", "表单组件", 8),
+    ("UX-STATE", "状态数据", 6),
+    ("UX-RISK", "风险权限", 5),
+    ("UX-MOTION", "动效反馈", 3),
+    ("UX-PERF", "感知性能", 2),
+    ("UX-RESP", "响应式", 4),
+    ("UX-A11Y", "无障碍", 6),
+    ("UX-RES", "研究检查", 3),
+]
+
+WALKTHROUGH_OBS_LABELS = [
+    ("entry_clarity", "首屏起步清晰"),
+    ("action_discoverability", "自主发现操作"),
+    ("module_burden", "无需理解内部模块"),
+    ("async_non_blocking", "异步不阻塞工作"),
+    ("context_recovery", "上下文可恢复"),
+    ("next_step_clarity", "下一步明确"),
+    ("goal_achieved", "目标真正达成"),
+]
+
+JOURNEY_VERDICT_META = {
+    "ALIGNED": ("旅程一致", "st-pass"),
+    "FRICTION": ("存在摩擦", "st-blocked"),
+    "NEEDS_REDESIGN": ("产品逻辑需重构", "st-fail"),
+    "UNVERIFIED": ("待实操验证", "st-pending"),
+}
+
+OBS_STATUS_META = {
+    "PASS": ("通过", "st-pass"),
+    "FRICTION": ("有摩擦", "st-blocked"),
+    "FAIL": ("失败", "st-fail"),
+    "UNVERIFIED": ("未验证", "st-pending"),
+    "N/A": ("不适用", "st-na"),
+}
+
+
+def _render_journey_section(results: dict[str, dict[str, Any]]) -> str:
+    """Render Product Cognition & Expected-vs-Actual Journey Gap Analysis block."""
+    biz_meta = (results.get("business_acceptance") or {}).get("meta") or {}
+    ui_meta = (results.get("ui_ux_experience") or {}).get("meta") or {}
+    jr = biz_meta.get("journey_review") if isinstance(biz_meta.get("journey_review"), dict) else None
+    jw = ui_meta.get("journey_walkthrough") if isinstance(ui_meta.get("journey_walkthrough"), dict) else None
+    journeys = (jr.get("journeys") or []) if jr else []
+    if not journeys and not jw:
+        return ""
+
+    cards: list[str] = []
+    for j in journeys:
+        if not isinstance(j, dict):
+            continue
+        jid = str(j.get("id", "journey"))
+        actor = str(j.get("actor", "")).strip()
+        goal = str(j.get("goal", "")).strip()
+        expected = [str(s) for s in (j.get("expected_stages") or []) if str(s).strip()]
+        actual = [str(s) for s in (j.get("actual_steps") or []) if str(s).strip()]
+        gap = str(j.get("gap_summary", "")).strip()
+        verdict = str(j.get("verdict", "UNVERIFIED")).strip()
+        v_label, v_cls = JOURNEY_VERDICT_META.get(verdict, (verdict, "st-pending"))
+        delta = len(actual) - len(expected)
+        if delta > 0 and verdict != "ALIGNED":
+            step_pill = f'<span class="pill pill-danger">实际 {len(actual)} 步 vs 预期 {len(expected)} 步（+{delta} 步组织成本）</span>'
+        else:
+            step_pill = f'<span class="pill pill-ok">实际 {len(actual)} 步 / 预期 {len(expected)} 步</span>'
+
+        exp_li = "".join(f'<li><span class="step-num">{i}</span><span>{esc(s)}</span></li>' for i, s in enumerate(expected, 1))
+        act_li = "".join(f'<li><span class="step-num">{i}</span><span>{esc(s)}</span></li>' for i, s in enumerate(actual, 1))
+
+        apc = j.get("anti_patterns_checked") if isinstance(j.get("anti_patterns_checked"), dict) else {}
+        ap_chips: list[str] = []
+        for ap_id, ap_name in ANTI_PATTERN_LABELS:
+            st = str(apc.get(ap_id, "N/A")).strip()
+            if st == "FOUND":
+                ap_chips.append(f'<span class="ap-chip ap-found">✗ {esc(ap_id)} {esc(ap_name)}</span>')
+            elif st == "CLEAR":
+                ap_chips.append(f'<span class="ap-chip ap-clear">✓ {esc(ap_id)} {esc(ap_name)}</span>')
+            else:
+                ap_chips.append(f'<span class="ap-chip ap-na">- {esc(ap_id)} {esc(ap_name)}</span>')
+
+        cards.append(f"""
+        <div class="journey-card">
+          <div class="dim-head">
+            <div>
+              <div class="journey-title"><code>{esc(jid)}</code>{f' · {esc(actor)}' if actor else ''}</div>
+              {f'<div class="muted small">用户目标：{esc(goal)}</div>' if goal else ''}
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              {step_pill}
+              <span class="badge {v_cls}">{esc(v_label)}</span>
+            </div>
+          </div>
+          <div class="journey-compare">
+            <div class="journey-col">
+              <div class="sub-label">Expected Journey（预期旅程 · {len(expected)} 步）</div>
+              <ol class="step-list">{exp_li}</ol>
+            </div>
+            <div class="journey-col {'journey-col-warn' if verdict in ('NEEDS_REDESIGN', 'FRICTION') else ''}">
+              <div class="sub-label">Actual Journey（实际产品路径 · {len(actual)} 步）</div>
+              <ol class="step-list">{act_li}</ol>
+            </div>
+          </div>
+          {f'<div class="journey-gap"><strong>旅程差异结论：</strong>{esc(gap)}</div>' if gap else ''}
+          <div>
+            <div class="sub-label">8 大 Product Anti-pattern 排查</div>
+            <div class="ap-grid">{"".join(ap_chips)}</div>
+          </div>
+        </div>
+        """)
+
+    wt_html = ""
+    if jw:
+        blind_badge = '<span class="pill pill-ok">无源码盲测（Blind）</span>' if jw.get("blind_mode") else '<span class="pill pill-warn">非盲测走查</span>'
+        obs = jw.get("observations") if isinstance(jw.get("observations"), dict) else {}
+        obs_cells: list[str] = []
+        for k, label in WALKTHROUGH_OBS_LABELS:
+            v = obs.get(k)
+            if isinstance(v, dict):
+                ost = str(v.get("status", "UNVERIFIED")).strip()
+                onote = str(v.get("note", "")).strip()
+            else:
+                ost = str(v or "UNVERIFIED").strip()
+                onote = ""
+            olabel, ocls = OBS_STATUS_META.get(ost, (ost, "st-pending"))
+            obs_cells.append(f"""
+            <div class="obs-item">
+              <div class="obs-top"><span>{esc(label)}</span><span class="badge {ocls}">{esc(olabel)}</span></div>
+              {f'<div class="muted small">{esc(onote)}</div>' if onote else ''}
+            </div>
+            """)
+        frictions = [str(x).strip() for x in (jw.get("friction_points") or []) if str(x).strip()]
+        fr_html = (
+            '<div class="gap-box"><div class="sub-label">盲测发现的体验摩擦点</div><ul>'
+            + "".join(f"<li>{esc(x)}</li>" for x in frictions)
+            + "</ul></div>"
+            if frictions else ""
+        )
+        wt_html = f"""
+        <div class="journey-card">
+          <div class="dim-head">
+            <div>
+              <div class="journey-title">Blind User Walkthrough（无引导用户走查）</div>
+              <div class="muted small">角色：{esc(jw.get('actor', ''))} · 目标：{esc(jw.get('goal', ''))}</div>
+            </div>
+            {blind_badge}
+          </div>
+          <div class="obs-grid">{"".join(obs_cells)}</div>
+          {fr_html}
+        </div>
+        """
+
+    return f"""
+    <div id="journey-cognition">
+      <div class="section-title">
+        <span>产品认知与用户旅程对比（L4/L5 Expected vs Actual Journey）</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        {"".join(cards)}
+        {wt_html}
+      </div>
+    </div>
+    """
+
+
+def _render_ux_coverage_block(res: dict[str, Any] | None) -> str:
+    if not res:
+        return ""
+    meta = res.get("meta") if isinstance(res.get("meta"), dict) else {}
+    ux_cov = meta.get("ux_coverage") if isinstance(meta.get("ux_coverage"), dict) else None
+    if not ux_cov:
+        return ""
+    tiles: list[str] = []
+    tot_p = tot_f = tot_na = tot_u = 0
+    for prefix, label, expected in UX_GROUP_LABELS:
+        g = ux_cov.get(prefix)
+        if not isinstance(g, dict):
+            continue
+        p = int(g.get("passed", 0))
+        f = int(g.get("failed", 0))
+        na = int(g.get("na", 0))
+        u = int(g.get("unverified", 0))
+        tot_p += p
+        tot_f += f
+        tot_na += na
+        tot_u += u
+        f_ids = g.get("failed_ids") or []
+        u_ids = g.get("unverified_ids") or []
+        tile_cls = "ux-tile-fail" if f > 0 else ("ux-tile-warn" if u > 0 else "ux-tile-ok")
+        extra_bits: list[str] = []
+        if f_ids:
+            extra_bits.append(f'<span class="ux-fail-ids">不通过: {esc(", ".join(str(x) for x in f_ids))}</span>')
+        if u_ids:
+            extra_bits.append(f'<span class="ux-unv-ids">未验证: {esc(", ".join(str(x) for x in u_ids))}</span>')
+        tiles.append(f"""
+        <div class="ux-tile {tile_cls}">
+          <div class="ux-tile-top"><strong>{esc(label)}</strong><code>{esc(prefix)}</code></div>
+          <div class="ux-tile-nums">通过 {p} · 不通过 {f} · 不适用 {na} · 未验 {u} / {expected}</div>
+          {f'<div class="ux-tile-ids">{" · ".join(extra_bits)}</div>' if extra_bits else ''}
+        </div>
+        """)
+    if not tiles:
+        return ""
+    return f"""
+    <div class="ux-cov-box">
+      <div class="sub-label">14 组 70 条 UI/UX 规则覆盖矩阵（通过 {tot_p} · 不通过 {tot_f} · 不适用 {tot_na} · 未验证 {tot_u}）</div>
+      <div class="ux-grid">{"".join(tiles)}</div>
+    </div>
+    """
+
 
 def esc(val: Any) -> str:
     return html.escape("" if val is None else str(val), quote=True)
@@ -292,6 +517,13 @@ def render_html_report(
         summary_line = res.get("summary", "") if res else lp.get("dimension_question", "")
         reviewer_line = f"审查者：{res['reviewer']}" if (res and res.get("reviewer")) else ""
 
+        ux_cov_block = _render_ux_coverage_block(res) if lid == "ui_ux_experience" else ""
+        design_docs = (manifest.get("repo_context") or {}).get("design_principle_docs") or []
+        design_banner = ""
+        if lid == "ui_ux_experience" and design_docs:
+            chips = "".join(f'<span class="pill pill-ok">{esc(d.get("name", ""))} ({esc(d.get("layer", ""))})</span>' for d in design_docs)
+            design_banner = f'<div class="design-strip"><span class="muted small" style="font-weight:600;">已载入 UI 设计理念 / 审美基准：</span>{chips}</div>'
+
         detail_sections.append(f"""
         <section class="dim-section" id="dim-{esc(lid)}" data-dim="{esc(lid)}" data-has-issues="{has_issues}">
           <div class="dim-head">
@@ -301,8 +533,10 @@ def render_html_report(
             </div>
             <span class="badge {st_cls}">{esc(st_label)}</span>
           </div>
+          {design_banner}
           {opt_block}
           {gaps_block}
+          {ux_cov_block}
           <details class="rules-details"{open_attr}>
             <summary>展开逐条规则核验明细（{len(dim['active_rules'])} 条激活{f' / {len(dim["auto_na_rules"])} 条自动跳过' if dim['auto_na_rules'] else ''}）</summary>
             {"".join(rule_tables)}
@@ -327,6 +561,7 @@ def render_html_report(
     </details>
     """
 
+    journey_section = _render_journey_section(results)
     overlays = manifest.get("applied_overlays") or []
     overlay_badge = f" · 叠加配置：{', '.join(o['name'] for o in overlays)}" if overlays else ""
     ds = manifest.get("diff_stats") or {}
@@ -524,6 +759,49 @@ def render_html_report(
   .auto-na-note ul {{ margin: 4px 0 0 18px; padding: 0; }}
   .timeline-list {{ list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; }}
   .round-tag {{ font-family: var(--rv-mono); font-size: 11px; color: var(--rv-muted); }}
+  .journey-card {{
+    background: var(--rv-card); border: 1px solid var(--rv-border);
+    border-radius: var(--rv-radius); padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }}
+  .journey-title {{ font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }}
+  .journey-compare {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
+  @media (max-width: 640px) {{ .journey-compare {{ grid-template-columns: 1fr; }} }}
+  .journey-col {{
+    background: var(--rv-subtle); border: 1px solid var(--rv-border);
+    border-radius: 8px; padding: 10px 12px;
+  }}
+  .journey-col-warn {{ border-left: 3px solid var(--rv-danger); }}
+  .step-list {{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; }}
+  .step-list li {{ display: flex; gap: 7px; align-items: flex-start; }}
+  .step-num {{
+    flex: 0 0 auto; width: 18px; height: 18px; border-radius: 999px;
+    background: var(--rv-code-bg); color: var(--rv-fg); font-family: var(--rv-mono);
+    font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 1px;
+  }}
+  .journey-gap {{ font-size: 13px; padding: 8px 12px; border-radius: 8px; background: var(--rv-subtle); border: 1px solid var(--rv-border); }}
+  .ap-grid {{ display: flex; flex-wrap: wrap; gap: 6px; }}
+  .ap-chip {{ font-size: 11.5px; padding: 3px 8px; border-radius: 6px; font-weight: 600; }}
+  .ap-found {{ background: var(--rv-danger-bg); color: var(--rv-danger); }}
+  .ap-clear {{ background: var(--rv-ok-bg); color: var(--rv-ok); }}
+  .ap-na {{ background: var(--rv-subtle); color: var(--rv-muted); }}
+  .obs-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }}
+  @media (max-width: 600px) {{ .obs-grid {{ grid-template-columns: 1fr; }} }}
+  .obs-item {{ background: var(--rv-subtle); border: 1px solid var(--rv-border); border-radius: 8px; padding: 8px 10px; }}
+  .obs-top {{ display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; }}
+  .ux-cov-box {{ border-top: 1px solid var(--rv-border); padding-top: 10px; }}
+  .ux-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }}
+  @media (max-width: 600px) {{ .ux-grid {{ grid-template-columns: 1fr; }} }}
+  .ux-tile {{ background: var(--rv-subtle); border: 1px solid var(--rv-border); border-radius: 7px; padding: 7px 10px; font-size: 12px; }}
+  .ux-tile-fail {{ border-left: 3px solid var(--rv-danger); }}
+  .ux-tile-warn {{ border-left: 3px solid var(--rv-warn); }}
+  .ux-tile-ok {{ border-left: 3px solid var(--rv-ok); }}
+  .ux-tile-top {{ display: flex; justify-content: space-between; align-items: center; gap: 6px; }}
+  .ux-tile-nums {{ color: var(--rv-muted); font-size: 11.5px; margin-top: 2px; }}
+  .ux-tile-ids {{ font-size: 11px; margin-top: 3px; font-family: var(--rv-mono); }}
+  .ux-fail-ids {{ color: var(--rv-danger); font-weight: 600; }}
+  .ux-unv-ids {{ color: var(--rv-warn); }}
+  .design-strip {{ display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 10px; border-radius: 8px; background: var(--rv-subtle); border: 1px solid var(--rv-border); }}
   .hidden {{ display: none !important; }}
 </style>
 </head>
@@ -556,6 +834,8 @@ def render_html_report(
       {"".join(overview_cards)}
     </div>
   </div>
+
+  {journey_section}
 
   <div>
     <div class="section-title">

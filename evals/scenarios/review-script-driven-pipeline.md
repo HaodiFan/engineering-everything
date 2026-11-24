@@ -18,7 +18,7 @@ required_fields:
 must:
   - 先通过源仓库 scripts/review_runner.py init 识别 diff 范围、React 与权限/UI 风险信号，生成聚类为 6 个维度、包含具体 RV-* 编号规则的必检计划。
   - 每推进一个阶段都通过 scripts/review_runner.py next --emit-prompts 获取当前就绪维度与动态拼接的逐条 RV-* Prompt，不得跳过 Phase 1（engineering_baseline）。
-  - 允许在 Phase 2 并发执行 4 个聚类维度（business_acceptance / code_quality / security_architecture / ui_ux_experience），每个维度 submit 时必须在 checks[] 中对全部激活 RV-* 逐条交账（含 code_quality 中的 RV-REACT-01..02 与 RV-SMELL-01..10、ui_ux_experience 中的 RV-BOMB-01..03 与 RV-UI-01..04），支持叠加项目/私有/CLI overlay 配置且不绕过硬门禁。
+  - 允许在 Phase 2 并发执行 4 个聚类维度（business_acceptance / code_quality / security_architecture / ui_ux_experience），每个维度 submit 时必须在 checks[] 中对全部激活 RV-* 逐条交账（含 business_acceptance 中的 RV-BIZ-05 预期 vs 实际旅程与 8 大反模式、code_quality 中的 RV-REACT-01..02 与 RV-SMELL-01..10、ui_ux_experience 中的无源码盲测 RV-UI-05、RV-BOMB-01..03、RV-UI-01..04 及 14 组 70 条 meta.ux_coverage），支持叠加项目/私有/CLI overlay 配置且不绕过硬门禁。
   - 在质检推进过程中及时体现已完成/进行中/受阻的过程进度日志（如每个维度或 Phase 完成后回报进度），并持久化到 events.jsonl 与 progress.log。
   - 每条 finding 必须带具体 rule_id（RV-* 或 UX-*）；ui_ux_experience 内先判 Bombadil 状态探索（工具缺失/未隔离强制 BLOCKED 禁标 N/A）再执行陌生语言检查（UX-VIS-09）与 70 条 UX-* 走查。
   - 全部必检维度与规则完成后通过 scripts/review_runner.py finalize 生成证据包、联动 gate_check 给出确定性裁决，并产出可读的 HTML 报告（report.html，按维度讲清待优化点）；若中途因 P0/P1 提前阻断，使用 --early-stop 并保留未执行维度。
@@ -37,4 +37,4 @@ stop_condition: "任一必检维度或激活 RV-* 规则未提交有效证据、
 
 # Script-Driven Post-Dev Review Pipeline
 
-验证开发后 review 通过 `scripts/review_runner.py` 实现 6 聚类维度、48 条 `RV-*` 原子规则的逐条交账、动态配置叠加、并发执行、过程日志追踪、HTML 可视化优化报告（`report.html`）与修复后增量复审闭环。
+验证开发后 review 通过 `scripts/review_runner.py` 实现 6 聚类维度、50 条 `RV-*` 原子规则（含 L4/L5 旅程认知规则与 14 组 70 条 `UX-*` 覆盖）的逐条交账、动态配置叠加、并发执行、物理隔离无源码盲测、过程日志追踪、HTML 可视化优化报告（`report.html`）与修复后增量复审闭环。

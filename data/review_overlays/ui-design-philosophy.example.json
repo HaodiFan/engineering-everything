@@ -1,0 +1,59 @@
+{
+  "schema_version": "1",
+  "name": "ui-design-philosophy",
+  "description": "将优秀 UI 与产品设计理念转化为可逐条核验的 Review 规则（复制到 .evolution/review_overlays/ 或 $EE_PRIVATE_ASSETS/review_overlays/ 即可自动生效，或通过 --overlay 临时启用）。",
+  "extend_lanes": {
+    "ui_ux_experience": {
+      "add_reference_files": [
+        "./ui-design-philosophy.example.md"
+      ],
+      "add_anti_rationalizations": [
+        "不得把“用了流行卡片/渐变/大留白”当作优秀设计；也不得以“个人审美偏好”否定符合高频习惯的优秀标准后台，必须对照设计理念的反例症状与例外边界给出可观察证据。"
+      ],
+      "add_rules": [
+        {
+          "id": "DES-PHI-01",
+          "group": "优秀 UI 设计理念",
+          "title": "任务主线优先，而非系统模块平铺",
+          "check": "核查界面是否围绕用户当前核心任务与决策主线组织，避免将后端模块平铺成 Tab 迫使用户自行拼装；符合高频习惯的专家后台按例外边界正常放行。",
+          "allow_na": true
+        },
+        {
+          "id": "DES-PHI-02",
+          "group": "优秀 UI 设计理念",
+          "title": "克制降噪与清晰视觉重心",
+          "check": "核查页面视觉信噪比：是否存在无意义套娃卡片、过多装饰边框/高亮标签或等权操作，确认 3 秒扫视可分出主结论与主行动。",
+          "allow_na": false
+        },
+        {
+          "id": "DES-PHI-03",
+          "group": "优秀 UI 设计理念",
+          "title": "渐进披露与聪明默认值",
+          "check": "核查首屏是否聚焦当前决策必需信息与高频操作，低频配置按需展开且默认值合理，同时不隐藏费用/风险/不可逆限制。",
+          "allow_na": true
+        },
+        {
+          "id": "DES-PHI-04",
+          "group": "优秀 UI 设计理念",
+          "title": "决策语境自洽，零记忆负担",
+          "check": "核查审批/提交/选择等决策点附近是否直接呈现关键依据、代价与前后状态，跨页或中断返回后无需凭记忆重找上下文。",
+          "allow_na": true
+        },
+        {
+          "id": "DES-PHI-05",
+          "group": "优秀 UI 设计理念",
+          "title": "即时可信反馈与非阻塞异步体验",
+          "check": "核查交互是否即时反馈且区分“已受理”与“已完成”，耗时/AI 任务后台非阻塞运行并提供清晰进度与错误恢复路径。",
+          "allow_na": true
+        },
+        {
+          "id": "DES-PHI-06",
+          "group": "优秀 UI 设计理念",
+          "title": "设计系统一致性与工艺细节",
+          "check": "核查间距、字阶、圆角、色彩语义、空态/加载态/报错态、超长文本与窄屏换行是否复用既有设计 token 并保持全站一致。",
+          "allow_na": false
+        }
+      ]
+    }
+  }
+}

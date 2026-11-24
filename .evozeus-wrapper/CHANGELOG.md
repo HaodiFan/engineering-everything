@@ -6,7 +6,21 @@ Wrapper harness migrations are recorded under `.evozeus-wrapper/docs/migrations/
 
 ## [Unreleased]
 
-- Release `v0.17.0`: moved the entries below under the version header and added `release-notes-v0.17.0.md`.
+- Release `v0.18.0`: moved the entries below under the version header and added `release-notes-v0.18.0.md`.
+
+## [v0.18.0] - 2026-11-24
+
+### Skill changes
+
+- User Journey–Driven Product Cognition Review (`0.18.0`):
+  - Added `references/user-journey.md` defining L0–L5 review hierarchy, implementation-agnostic Journey Contract, strict trigger boundaries, Journey-First anti-anchoring protocol, 8 Product Anti-patterns (`AP-01`..`AP-08`), Blind User Walkthrough (7 observations), and anti-over-review positive-control guardrails.
+  - Extended `schemas/intent-card.schema.json` with optional `journeys[]` contract and updated `engineering-product-definition` to derive journeys before screens/modules.
+  - Added conditional rules `RV-BIZ-05` (Expected vs Actual Journey & 8 Product Anti-patterns in `business_acceptance`) and `RV-UI-05` (Blind User Walkthrough in `ui_ux_experience`), bringing the 6-dimension catalog to 50 atomic `RV-*` rules while keeping 3 execution phases (`1 -> 4 parallel -> 1`).
+  - Upgraded `scripts/review_runner.py` with physically code-free Blind Walkthrough prompt generation (`ui_ux_experience.blind.md`), Intent Card `journeys[]` auto-loading, strict `has_journey_surface` trigger gating (`--journey` / `--no-journey`), 14-group structured 70-rule `meta.ux_coverage` validation, and `journey_review` / `journey_walkthrough` validators.
+  - Upgraded `scripts/review_report_html.py` with Expected vs Actual Journey comparison cards, 8 Product Anti-pattern status chips, Blind Walkthrough 7-observation strip, and 14-group 70-rule UX coverage matrix.
+  - Added zero-config UI design philosophy auto-discovery (`DESIGN.md`, `.evolution/design-principles/*.md`, `.evolution/taste/*.md`, `$EE_PRIVATE_ASSETS/design-principles/*.md`) with automatic prompt injection (scrubbed from blind walkthrough), `meta.company_cases_loaded=true` enforcement, HTML loaded-benchmark badges, and ready-to-copy preset `data/review_overlays/ui-design-philosophy.example.json` + `.md` (`DES-PHI-01..06`).
+  - Added Negative Product Benchmark eval (`evals/scenarios/product-journey-negative-benchmark.md`, 6 anti-pattern cases + 1 positive control) and expanded `tests/test_review_runner.py` (56 tests passing).
+- Release `v0.18.0`: moved the entries above under the version header and added `release-notes-v0.18.0.md`.
 
 ## [v0.17.0] - 2026-11-24
 

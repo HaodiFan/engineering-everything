@@ -43,6 +43,67 @@
     "user_and_scenario": {
       "type": "string"
     },
+    "journeys": {
+      "type": "array",
+      "description": "Optional implementation-agnostic user journeys for user-facing workflows, navigation, workspaces, cross-role or async tasks. Deliberately avoid naming pages, tabs, buttons, or internal modules.",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "actor",
+          "trigger",
+          "goal",
+          "stages",
+          "success"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "actor": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Target user role and assumed domain familiarity."
+          },
+          "trigger": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Real-world event or need that starts this journey."
+          },
+          "goal": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What outcome the user wants to achieve."
+          },
+          "stages": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "High-level user stages without prescribing UI pages, tabs, or buttons."
+          },
+          "success": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "experience_constraints": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Non-functional journey constraints, e.g., non-blocking async work, context recovery, no internal module jargon."
+          }
+        }
+      }
+    },
     "goal": {
       "type": "string"
     },

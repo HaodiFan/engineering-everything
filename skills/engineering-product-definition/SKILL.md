@@ -2,7 +2,7 @@
 name: engineering-product-definition
 description: Use when clarifying or reviewing a product idea, PRD, requirements, PSPS, user scenario, scope, non-goals, or success criteria, finding gaps and recommending decisions for user confirmation before architecture or implementation.
 metadata:
-  version: 0.17.0
+  version: 0.18.0
 ---
 
 # Engineering Product Definition / 产品定义
@@ -18,10 +18,11 @@ metadata:
 ## 工作流
 
 1. 先读取用户材料和相关已有文档，查清可查证的事实，提取一句话定义与 PSPS；已有内容直接引用，缺失项标明，避免交给用户一份空白清单。
-2. 按 `references/checklists.md` 的需求审查流程检查业务闭环、范围、规则与异常、约束和验收。区分事实、假设、建议与待决事项，不把推测写成已确认需求。
-3. 分级说明缺口及影响。涉及业务取舍时给出可选方案、代价和推荐理由；提出 P0/P1/P2 范围建议，P0 必须保住最小业务闭环。
-4. 输出需求理解、关键缺口、建议和需用户确认的事项，等待用户明确确认审查结论及取舍。完备性检查通过本身不构成推进授权；用户只回答部分问题时，继续标明未决项。
-5. 用户确认后，将已确认内容更新到需求文档，再进入约定的下一步。已确认决策直接沿用，只有新增关键假设或范围变化才重新确认。
+2. 涉及面向用户的工作流、导航/信息架构、工作台、跨角色协作或异步/AI 任务时，先按 `references/user-journey.md` 推导**与界面实现解耦的核心用户旅程**（`actor / trigger / goal / stages / success / experience_constraints`，不写死页面/Tab/按钮），写入需求卡 `journeys[]`，再确定功能组合与界面方案。
+3. 按 `references/checklists.md` 的需求审查流程检查业务闭环、范围、规则与异常、约束和验收。区分事实、假设、建议与待决事项，不把推测写成已确认需求。
+4. 分级说明缺口及影响。涉及业务取舍时给出可选方案、代价和推荐理由；提出 P0/P1/P2 范围建议，P0 必须保住最小业务闭环。
+5. 输出需求理解、关键缺口、建议和需用户确认的事项，等待用户明确确认审查结论及取舍。完备性检查通过本身不构成推进授权；用户只回答部分问题时，继续标明未决项。
+6. 用户确认后，将已确认内容更新到需求文档，再进入约定的下一步。已确认决策直接沿用，只有新增关键假设或范围变化才重新确认。
 
 ### 团队交付：开工前想清楚
 
@@ -58,6 +59,7 @@ metadata:
 本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
 - `references/delivery-gates.md`：团队任务，要写需求卡、定档位、判断要不要找人拍板时。
+- `references/user-journey.md`：涉及用户工作流、工作台、导航、跨角色或异步任务，要在定功能前先推导 Journey Contract 时就读。
 - `references/psps-framework.md`：需求模糊，要用 PSPS 挖洞察时。
 - `references/spec-templates.md`：要选需求 / Design Doc 模板时。
 - `references/templates-specs.md`：要按模板写正式文档时。

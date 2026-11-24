@@ -1,6 +1,6 @@
 # Script-Driven Post-Dev Review Pipeline（脚本驱动的动态可配置评审链路）
 
-本文件定义开发后 Review（Stage 7–8 与团队交付 Gate 2）的控制链路。核心原则：**默认基线聚类为 6 个正交、业务一眼可读的 Review 维度（覆盖 48 条稳定编号原子规则 `RV-*` 与 70 条 `UX-*`，见 `references/review-rules.md`），支持按公司/项目/任务动态叠加或裁剪配置（不写死步骤）；执行全程记录可观测的过程日志与实时进度看板，默认产出可读的 HTML 可视化报告（`report.html`）+ Markdown 汇总（`report.md`），缺任一必检规则即拒收。**
+本文件定义开发后 Review（Stage 7–8 与团队交付 Gate 2）的控制链路。核心原则：**默认基线聚类为 6 个正交、业务一眼可读的 Review 维度（覆盖 50 条稳定编号原子规则 `RV-*`——含 L4/L5 产品认知与用户旅程规则 `RV-BIZ-05` / `RV-UI-05`——以及 14 组 70 条 `UX-*` 结构化覆盖，见 `references/review-rules.md` 与 `user-journey.md`），支持按公司/项目/任务动态叠加或裁剪配置（不写死步骤）；执行全程记录可观测的过程日志与实时进度看板，默认产出含预期 vs 实际旅程对比的 HTML 可视化报告（`report.html`）+ Markdown 汇总（`report.md`），缺任一必检规则即拒收。**
 
 - 编排脚本：`scripts/review_runner.py`（位于源仓库；软链安装的 Skill 取本目录真实路径向上两级）。
 - HTML 渲染器：`scripts/review_report_html.py`（零第三方依赖，内联 CSS/JS 与主题变量，按维度讲清优化点）。
@@ -9,18 +9,18 @@
 
 ---
 
-## 1. 默认基线：三阶段硬门闩 + 6 个聚类维度（48 条 `RV-*` + 70 条 `UX-*`）
+## 1. 默认基线：三阶段硬门闩 + 6 个聚类维度（50 条 `RV-*` + 14 组 70 条 `UX-*`）
 
 同一 Phase 内就绪维度**允许并发执行**（推荐派发独立只读 subagent），但下一 Phase 必须等前置依赖落盘后解锁；**每个维度提交时必须对旗下全部激活规则逐条在 `checks[]` 交账，漏一条即拒收。**
 
 | 阶段 | 聚类维度（Lane ID） | 核心问题 | 子分组与规则编号（默认条数） | 对应 Gate / 角色 | 触发条件 | 并发 |
 |---|---|---|---|---|---|---|
-| **Stage 0** | `init`（脚本自动） | 范围与配置是什么？ | 合并四层叠加配置 + 信号分流 | — | 每次必先运行 | — |
+| **Stage 0** | `init`（脚本自动） | 范围与配置是什么？ | 合并四层叠加配置 + 信号分流 + 加载需求卡 `journeys[]` | — | 每次必先运行 | — |
 | **Phase 1** | `engineering_baseline` | 工程底线稳吗？ | 工程底线 `RV-BASE-01`..`05`（5 条） | G0 / QA | 有代码变更（不可 N/A / 禁用 / 豁免） | 否（前置门闩） |
-| **Phase 2** | `business_acceptance` | 业务问题解决了吗？ | 业务与端到端验收 `RV-BIZ-01`..`04`（4 条） | G4 + G1 / Product + QA | `pr`/`delivery`/`release` 或交付 | 是 |
+| **Phase 2** | `business_acceptance` | 业务问题和产品旅程方向对吗？ | 业务与端到端验收 `RV-BIZ-01`..`04` + 产品认知与 8 大反模式 `RV-BIZ-05`（5 条） | G4 + G1 / Product + QA | `pr`/`delivery`/`release` 或交付（`RV-BIZ-05` 仅命中旅程/IA/工作流或需求卡 `journeys[]` 激活） | 是 |
 | **Phase 2** | `code_quality` | 代码正确、干净且有测试保护吗？ | React 扫描 `RV-REACT-01..02` + 正确性与测试 `RV-BUG-01..05`/`RV-TEST-01` + 坏味道 `RV-SMELL-01..10`（18 条） | G0 + CR / Code | 有代码变更（不可 N/A；`RV-REACT-*` 仅 React 激活） | 是 |
 | **Phase 2** | `security_architecture` | 安全合规与架构边界稳吗？ | 安全脱敏 `RV-SEC-01..05` + 架构迁移 `RV-ARCH-01..04` + 接口 DX `RV-DX-01` + AI 链路 `RV-AI-01`（11 条） | G0 + D / Security + Arch + DX | 有代码变更（不可禁用 / 豁免；子规则按信号激活） | 是 |
-| **Phase 2** | `ui_ux_experience` | 界面用起来顺、状态不炸且看起来对吗？ | Bombadil 状态探索 `RV-BOMB-01..03` + UI/UX 审计 `RV-UI-01..04` + 70 条 `UX-*`（7 条门禁） | G2 + G3 / QA + Design | 涉及 UI 或 `audit` 模式（先判 Bombadil 再做走查） | 是 |
+| **Phase 2** | `ui_ux_experience` | 盲测能走通、交互稳、70 条体验达标吗？ | 无源码盲测走查 `RV-UI-05` + Bombadil 状态探索 `RV-BOMB-01..03` + UI/UX 审计 `RV-UI-01..04` + 14 组 70 条 `UX-*`（8 条门禁） | G2 + G3 / QA + Design | 涉及 UI 或 `audit` 模式（`RV-UI-05` 命中旅程时生成物理隔离 `ui_ux_experience.blind.md`） | 是 |
 | **Phase 3** | `release_readiness` | 能不能放心发布与回滚？ | 上线与发布准备 `RV-REL-01`..`03`（3 条） | R / Release | `delivery`/`release`、L2+ 或涉发布 | 否（汇总门闩） |
 | **Stage 3 裁决** | `finalize`（脚本自动） | 最终能不能交付？ | 全量规则汇总 + `gate_check.py` + `report.html` / `report.md` | 最终门禁 | 全必检维度落盘后 | — |
 
@@ -41,6 +41,10 @@
 - `extend_lanes`：给已有维度追加规则（`add_rules`）、追加参考文档（`add_reference_files`）、追加依赖或反跳步红线；
 - `signal_patterns`：为项目特有目录补充信号匹配模式；
 - `force_require_lanes` / `disable_lanes` / `disable_rules`：强制开启或带理由关闭**非硬门禁**维度/规则（`never_waived=true` 的硬门禁如 `engineering_baseline`、`security_architecture` 及其必检规则禁止被配置静默关闭）。
+
+**优秀 UI 设计理念 / 审美基准配置（零配置自动发现 + 规则化模板）**：
+- **免写 JSON 自动注入**：将团队或项目的设计理念 `.md` 放到 `$EE_PRIVATE_ASSETS/design-principles/*.md`、`$EE_PRIVATE_ASSETS/taste/*.md`、`$EE_PRIVATE_ASSETS/DESIGN.md` 或项目 `<target>/.evolution/design-principles/*.md`、`<target>/.evolution/taste/*.md`、`<target>/DESIGN.md`，`review_runner.py` 会自动发现并把全文注入 `ui_ux_experience`（以及激活 `RV-BIZ-05` 时的 `business_acceptance`），同时保持 `ui_ux_experience.blind.md` 物理隔离无泄露；提交 `ui_ux_experience` 时强制校验 `meta.company_cases_loaded = true` 并在 `report.html` 中标注已载入基准。
+- **升级为逐条强制规则**：直接复用或改写源仓库预设模板 `data/review_overlays/ui-design-philosophy.example.json`（与配套 `ui-design-philosophy.example.md`，含 `DES-PHI-01..06`），放入 `.evolution/review_overlays/` 或传入 `--overlay` 即可逐条交账。
 
 查看叠加后的生效目录：
 
@@ -116,10 +120,11 @@ python3 "$RUNNER" recheck --run "<run_dir>"
 ## 6. 脚本硬校验清单与边界
 
 1. **逐条规则交账**：`checks[]` 必须覆盖本维度全部激活规则编号；缺条、重复、不可 `N/A` 标 `N/A`、`checks[]` 有 `FAIL` 却报维度 `PASS` 均拒收。
-2. **Finding 溯源**：每条 finding 必须带合法 `rule_id`（`RV-*` / `UX-*` / 自定义 `<PREFIX>-<GROUP>-<NN>`）、`severity`、`location`、`problem`、`impact`、`fix`。
+2. **Finding 溯源**：每条 finding 必须带合法 `rule_id`（`RV-*` / `UX-*` / `AP-01..08` / 自定义 `<PREFIX>-<GROUP>-<NN>`）、`severity`、`location`、`problem`、`impact`、`fix`。
 3. **专项底线**：
+   - `business_acceptance` 激活 `RV-BIZ-05` 时必须提交 `meta.journey_review.journeys[]`（预期阶段、实际步骤、差异结论与全部 `AP-01..08` 排查状态；命中 `FOUND` 须有对应 Finding）；
    - `code_quality` 命中 React 时必须带合法 React Doctor `meta`（`scope` / `no_telemetry`），跳文件禁标 `PASS`；
-   - `ui_ux_experience` 内 `RV-BOMB-01..03` 工具缺失/未隔离强制 `BLOCKED` 禁标 `N/A`；仅截图必须列 `unverified_items` 且 `finalize` 不判 `READY`；
+   - `ui_ux_experience` 内 `RV-UI-03` 必须在 `meta.ux_coverage` 交齐全部 14 组（总计 70 条）结构化统计且失败项与 `findings[]` 对齐；激活 `RV-UI-05` 时脚本自动生成物理无源码盲测 Prompt `ui_ux_experience.blind.md` 并强制校验 `meta.journey_walkthrough` 7 项观察点；`RV-BOMB-01..03` 工具缺失/未隔离强制 `BLOCKED` 禁标 `N/A`；仅截图必须列 `unverified_items` 且 `finalize` 不判 `READY`；
    - 浏览器测试遵守非 UI 后端优先、复杂可运行 UI 前置 Bombadil 的统一边界。
 4. **有范围提前阻断**：存在 `FAIL` 或 `P0/P1` 时允许 `finalize --early-stop --reason "..."`，强制单列未执行维度并产出 HTML 报告。
 5. **无脚本兜底**：宿主无法运行 Python/Shell 时先说明“未运行 `scripts/review_runner.py` 及原因”，再按 `references/review-rules.md` 6 维度逐条手工核验，并在回复过程中汇报阶段完成进度。

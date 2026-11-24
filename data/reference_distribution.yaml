@@ -233,3 +233,9 @@ entries:
       - engineering-refactoring
       - engineering-review-release
       - engineering-ui-ux-audit
+  - source: user-journey.md
+    mode: exact-copy
+    targets:
+      - engineering-product-definition
+      - engineering-review-release
+      - engineering-ui-ux-audit

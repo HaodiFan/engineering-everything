@@ -1,6 +1,6 @@
 {
   "schema_version": "3",
-  "description": "Clustered post-development review pipeline: 3 execution phases, 6 MECE review dimensions (modules), and 48 atomic numbered RV-* rules organized by sub-group. Composable with private/project/CLI overlays.",
+  "description": "Clustered post-development review pipeline: 3 execution phases, 6 MECE review dimensions (modules), and 50 atomic numbered RV-* rules (including L4/L5 Product Cognition & User Journey rules) organized by sub-group. Composable with private/project/CLI overlays.",
   "phases": [
     {
       "id": "preflight_baseline",
@@ -93,8 +93,8 @@
     {
       "id": "business_acceptance",
       "phase": "dimension_reviews",
-      "title": "维度 2：业务闭环与功能验收（G4 + G1）",
-      "dimension_question": "业务问题解决了吗？每条验收标准都有一手实测证据吗？",
+      "title": "维度 2：业务闭环与产品认知验收（G4 + G1 + Journey）",
+      "dimension_question": "业务问题和产品旅程方向对吗？每条验收标准都有一手实测证据吗？",
       "owner_skill": "engineering-review-release",
       "gate_steps": ["G4", "G1"],
       "review_roles": ["product", "qa"],
@@ -102,6 +102,7 @@
       "can_parallel": true,
       "allow_na": true,
       "never_waived": false,
+      "validators": ["journey_review"],
       "recheck_policy": "on_any_fix",
       "required_in_modes": ["pr", "delivery", "release"],
       "exclude_in_modes": ["audit"],
@@ -109,12 +110,14 @@
       "na_reason_default": "纯界面截图/原型审计模式，无业务功能代码交付。",
       "reference_slices": [
         {"file": "delivery-gates.md", "sections": ["0. 先问业务，再谈技术", "4. 交付前：确认做对了（Quality）"]},
+        {"file": "user-journey.md", "sections": ["4. 防锚定评审顺序（Journey-First Protocol）", "5. 八类 Product Anti-pattern（`AP-01`..`AP-08`）", "6. 防过度审查护栏（正例放行原则）"], "only_when_signal": "has_journey_surface"},
         {"file": "verification-methods.md", "sections": ["业务验证（G4 解决了业务问题吗）——每次都要", "功能对吗（G1）"]},
         {"file": "execution-pipeline.md", "sections": ["5. 测试默认顺序与 Browser QA 触发边界"]}
       ],
       "anti_rationalizations": [
         "开发用的 Agent 不能当独立验收人；不得直接采信“开发说测过了”。",
-        "无对应版本证据的验收项一律视为未验证/BLOCKED，不能算通过。"
+        "无对应版本证据的验收项一律视为未验证/BLOCKED，不能算通过。",
+        "激活 RV-BIZ-05 时必须先独立推导 Expected Journey 再对比实际产品路径，敢于质疑“实现无 Bug 但产品设计方向错了”；同时对符合高频习惯的优秀标准后台正常放行，不强行制造问题。"
       ],
       "rules": [
         {
@@ -143,6 +146,15 @@
           "group": "业务与功能验收",
           "title": "回归测试与业务数据对账",
           "check": "Bug fix 是否补充回归测试；涉及金额/库存/统计/报表时是否做过脱敏样本前后对账（不涉及可标 N/A 并说明）。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-BIZ-05",
+          "group": "产品认知与用户旅程（L4/L5）",
+          "title": "预期旅程 vs 实际旅程与 8 大产品反模式审查（Product Cognition）",
+          "check": "先独立推导或核对与界面实现解耦的 Expected Journey（不提页面/Tab/按钮），再对比实际产品路径与步骤，逐项核查 8 类 Product Anti-pattern（AP-01..AP-08：模块驱动 UI、旅程碎片化、上下文丢失、顺序错位、过早决策、下一步缺失、内部复杂性/阻塞、高低频错位）；对符合高频习惯的标准后台正常放行，不为了找问题而推翻合理设计。",
+          "trigger_signals": ["has_journey_surface"],
+          "na_reason_default": "纯文案、纯视觉微调或不改变用户旅程的内部重构。",
           "allow_na": true
         }
       ]
@@ -445,8 +457,8 @@
     {
       "id": "ui_ux_experience",
       "phase": "dimension_reviews",
-      "title": "维度 5：界面体验与交互稳定性（Bombadil + UI/UX 70 条）",
-      "dimension_question": "复杂交互稳不稳？界面顺不顺手？换陌生语言光凭 UI 能不能用？",
+      "title": "维度 5：界面体验与旅程走查（Blind Walkthrough + Bombadil + UI/UX 70 条）",
+      "dimension_question": "不看说明用户能自己走通旅程吗？复杂交互稳不稳？70 条体验规则达标吗？",
       "owner_skill": "engineering-ui-ux-audit",
       "gate_steps": ["G2", "G3"],
       "review_roles": ["design", "qa"],
@@ -454,7 +466,7 @@
       "can_parallel": true,
       "allow_na": true,
       "never_waived": false,
-      "validators": ["bombadil", "ui_ux_audit"],
+      "validators": ["bombadil", "ui_ux_audit", "journey_walkthrough"],
       "file_bucket": "ui_files",
       "recheck_policy": "on_file_match",
       "required_in_modes": ["audit"],
@@ -462,16 +474,28 @@
       "trigger_signals": ["has_ui_change"],
       "na_reason_default": "本次变更不涉及用户界面或视觉交互。",
       "reference_slices": [
+        {"file": "user-journey.md", "sections": ["4. 防锚定评审顺序（Journey-First Protocol）", "5. 八类 Product Anti-pattern（`AP-01`..`AP-08`）", "6. 防过度审查护栏（正例放行原则）"], "only_when_signal": "has_journey_surface"},
         {"file": "bombadil.md", "sections": []},
         {"file": "ui-ux-verification.md", "sections": []},
         {"file": "ui-ux-playbook.md", "sections": ["1. 评判报告结构"]}
       ],
       "anti_rationalizations": [
+        "激活 RV-UI-05 时，必须先用物理隔离无源码的 blind prompt 完成 Blind User Walkthrough 并记录真实路径与 7 项观察点，再查看代码或执行细项审计。",
         "先完成 Bombadil 适用性判定与有界探索（RV-BOMB-01..03），再做界面走查（RV-UI-01..04）；同一证据直接复用不重复跑。",
         "Bombadil 工具缺失、断网、未隔离或超时必须标 BLOCKED，严禁标成 N/A。",
-        "仅有截图时严禁放行上线，不可证明项必须全部列入 unverified_items；不得凭原文脑补陌生语言检查结果。"
+        "RV-UI-03 必须在 meta.ux_coverage 中交齐全部 14 组（共 70 条）结构化统计，且失败/未验证规则逐条列 UX-* ID。",
+        "仅有截图时严禁放行上线，不可证明项必须全部列入 unverified_items；不得凭原文脑补陌生语言检查结果或把 Agent 走查冒充真实用户可用性测试。"
       ],
       "rules": [
+        {
+          "id": "RV-UI-05",
+          "group": "无引导用户旅程走查（Blind Walkthrough）",
+          "title": "无引导用户走查与 7 项旅程观察（Blind User Walkthrough）",
+          "check": "使用物理隔离无源码的 blind prompt（仅给用户身份、真实场景、目标与入口 URL，不给 diff/按钮路径/内部模块说明）实际操作完成任务，逐项记录 7 项观察点（entry_clarity / action_discoverability / module_burden / async_non_blocking / context_recovery / next_step_clarity / goal_achieved）与实际步数摩擦；仅截图时标明未验证边界，且不冒充真实用户可用性测试。",
+          "trigger_signals": ["has_journey_surface"],
+          "na_reason_default": "纯文案、纯视觉样式微调或无旅程变化的局部调整。",
+          "allow_na": true
+        },
         {
           "id": "RV-BOMB-01",
           "group": "前置交互状态探索（Bombadil）",

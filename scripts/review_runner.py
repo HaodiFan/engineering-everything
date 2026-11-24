@@ -46,8 +46,51 @@ BLOCKING_SEVERITIES = {"P0", "P1", "blocking"}
 SEVERITY_RANK = {
     "P0": 0, "blocking": 0, "P1": 1, "major": 2, "P2": 2, "minor": 3, "P3": 3, "suggestion": 4,
 }
-RULE_ID_RE = re.compile(r"^[A-Z][A-Z0-9]{1,7}-[A-Z0-9]+-\d{2,3}$")
+RULE_ID_RE = re.compile(r"^(?:[A-Z][A-Z0-9]{1,7}-[A-Z0-9]+-\d{2,3}|AP-0[1-8])$")
 
+PRODUCT_ANTI_PATTERNS: list[tuple[str, str]] = [
+    ("AP-01", "Module-Driven UI（模块驱动界面）"),
+    ("AP-02", "Broken Journey（旅程碎片化）"),
+    ("AP-03", "Context Loss（上下文丢失）"),
+    ("AP-04", "Wrong Sequence（步骤顺序错位）"),
+    ("AP-05", "Premature Decision（过早/盲目决策）"),
+    ("AP-06", "Missing Next Action（主入口或下一步缺失）"),
+    ("AP-07", "Cognitive Overload（内部复杂性转嫁/流程阻塞）"),
+    ("AP-08", "Frequency Mismatch（高低频权重错位）"),
+]
+ANTI_PATTERN_IDS = {ap_id for ap_id, _ in PRODUCT_ANTI_PATTERNS}
+
+UX_GROUPS: list[tuple[str, str, int]] = [
+    ("UX-META", "审计纪律", 5),
+    ("UX-FLOW", "任务流程", 3),
+    ("UX-IA", "导航与位置", 5),
+    ("UX-VIS", "视觉层级与布局", 9),
+    ("UX-TYPE", "排版文案", 6),
+    ("UX-COLOR", "颜色与对比度", 5),
+    ("UX-FORM", "表单与组件", 8),
+    ("UX-STATE", "状态与数据反馈", 6),
+    ("UX-RISK", "风险与权限控制", 5),
+    ("UX-MOTION", "动效与反馈", 3),
+    ("UX-PERF", "感知性能", 2),
+    ("UX-RESP", "响应式适配", 4),
+    ("UX-A11Y", "无障碍", 6),
+    ("UX-RES", "研究检查", 3),
+]
+UX_RULE_ID_RE = re.compile(r"^UX-[A-Z0-9]+-\d{2}$")
+
+WALKTHROUGH_OBSERVATION_KEYS: list[tuple[str, str]] = [
+    ("entry_clarity", "首次进入是否知道从哪里开始"),
+    ("action_discoverability", "能否独立发现正确操作"),
+    ("module_burden", "是否被迫理解内部模块划分"),
+    ("async_non_blocking", "等待/异步处理期间能否做其他工作"),
+    ("context_recovery", "跨页/中断/分析完成后能否找回上下文"),
+    ("next_step_clarity", "完成一步后是否知道下一步做什么"),
+    ("goal_achieved", "最终是否真正达成用户目标"),
+]
+VALID_OBSERVATION_STATUSES = ("PASS", "FAIL", "FRICTION", "UNVERIFIED", "N/A")
+
+STYLE_ONLY_EXTENSIONS = {".css", ".scss", ".sass", ".less"}
+COPY_ONLY_TOKENS = ("locales/", "i18n/", "/copy.", "copy.ts", "copy.json", "strings.", ".po", ".pot")
 UI_EXTENSIONS = {".tsx", ".jsx", ".vue", ".svelte", ".css", ".scss", ".sass", ".less", ".html", ".astro"}
 CODE_EXTENSIONS = UI_EXTENSIONS | {
     ".py", ".ts", ".js", ".mjs", ".cjs", ".go", ".rs", ".java", ".kt", ".swift", ".rb", ".php", ".cs", ".cpp", ".c", ".h", ".sql", ".sh",
@@ -67,6 +110,11 @@ DEFAULT_SIGNAL_PATTERNS: dict[str, list[str]] = {
     "ai_automation": ["prompt", "llm", "agent", "openai", "anthropic", "gemini", "ocr", "paddle", "yolo", "cv/", "vision", "rpa", "selenium", "playwright", "eval", "rag"],
     "release": ["dockerfile", "docker-compose", ".github/workflows", "helm", "k8s", "terraform", "deploy", "changelog", "release", "migration", "alembic", "package.json", "pyproject.toml"],
     "ui_interactive": ["form", "submit", "modal", "dialog", "wizard", "step", "checkout", "approval", "auth", "login", "role", "permission", "retry", "async", "query", "mutation", "store", "state"],
+    "journey_surface": [
+        "pages/", "views/", "screens/", "routes/", "router", "navigation", "navbar", "sidebar", "layout",
+        "workspace", "workbench", "dashboard", "home", "inbox", "feed", "tabs", "wizard", "onboarding",
+        "flow", "workflow", "checkout", "approval", "drawer", "modal", "task", "notification", "decision",
+    ],
 }
 SECRET_LINE_REGEXES = [
     ("private-key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
@@ -561,6 +609,28 @@ def parse_git_state(git_root: Path, base_ref: str | None, explicit_files: list[s
     }
 
 
+def load_intent_card_context(intent_card: str | None) -> dict[str, Any]:
+    """Load optional journeys/goal/scenario from a JSON Intent Card file if present."""
+    if not intent_card:
+        return {"journeys": [], "goal": "", "user_and_scenario": ""}
+    path = Path(intent_card)
+    if not path.is_file():
+        return {"journeys": [], "goal": "", "user_and_scenario": ""}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"journeys": [], "goal": "", "user_and_scenario": ""}
+    if not isinstance(data, dict):
+        return {"journeys": [], "goal": "", "user_and_scenario": ""}
+    raw_journeys = data.get("journeys")
+    journeys = [j for j in raw_journeys if isinstance(j, dict)] if isinstance(raw_journeys, list) else []
+    return {
+        "journeys": journeys,
+        "goal": str(data.get("goal") or "").strip(),
+        "user_and_scenario": str(data.get("user_and_scenario") or "").strip(),
+    }
+
+
 def detect_repo_and_signals(
     target: Path,
     git_info: dict[str, Any],
@@ -571,10 +641,13 @@ def detect_repo_and_signals(
     ui_interactive_override: bool | None,
     has_release_flag: bool,
     intent_card: str | None,
+    journey_override: bool | None = None,
 ) -> dict[str, Any]:
     changed = git_info.get("changed_files", [])
     lower_files = [f.lower() for f in changed]
     sp = effective_cfg["signal_patterns"]
+    intent_ctx = load_intent_card_context(intent_card)
+    intent_journeys = intent_ctx["journeys"]
 
     def any_ext(exts: set[str]) -> bool:
         return any(Path(f).suffix.lower() in exts for f in changed)
@@ -641,6 +714,20 @@ def detect_repo_and_signals(
         has_complex_ui_flow = False
 
     has_security_surface = any_pat("security")
+    non_trivial_ui_files = [
+        f for f in changed
+        if (Path(f).suffix.lower() in UI_EXTENSIONS and Path(f).suffix.lower() not in STYLE_ONLY_EXTENSIONS)
+        and not any(tok in f.lower() for tok in COPY_ONLY_TOKENS)
+    ]
+    if journey_override is not None:
+        has_journey_surface = journey_override
+    elif intent_journeys:
+        has_journey_surface = True
+    elif non_trivial_ui_files and (any_pat("journey_surface") or any_pat("ui_interactive")):
+        has_journey_surface = True
+    else:
+        has_journey_surface = False
+
     effective_level = level
     level_bump_reason = ""
     if has_security_surface and level == "L0":
@@ -663,15 +750,44 @@ def detect_repo_and_signals(
     if env_assets and Path(env_assets).exists():
         private_assets_sources.append(str(Path(env_assets).resolve()))
 
+    design_principle_docs: list[dict[str, str]] = []
+    seen_design_paths: set[Path] = set()
+
+    def _add_design_doc(layer: str, p: Path) -> None:
+        if not p.is_file():
+            return
+        rp = p.resolve()
+        if rp in seen_design_paths:
+            return
+        seen_design_paths.add(rp)
+        design_principle_docs.append({"layer": layer, "name": p.name, "path": str(rp)})
+
+    if env_assets:
+        priv_root = Path(env_assets).resolve()
+        for sub in ("design-principles", "taste"):
+            if (priv_root / sub).is_dir():
+                for md in sorted((priv_root / sub).glob("*.md")):
+                    _add_design_doc("private", md)
+        _add_design_doc("private", priv_root / "DESIGN.md")
+    if target.exists() and target.is_dir():
+        for sub in (".evolution/design-principles", ".evolution/taste"):
+            if (target / sub).is_dir():
+                for md in sorted((target / sub).glob("*.md")):
+                    _add_design_doc("project", md)
+        _add_design_doc("project", target / "DESIGN.md")
+
     return {
         "effective_level": effective_level,
         "level_bump_reason": level_bump_reason,
         "material": resolved_material,
+        "journeys": intent_journeys,
+        "intent_context": intent_ctx,
         "signals": {
             "has_code_change": has_code_change,
             "is_react": is_react,
             "has_ui_change": has_ui_change,
             "has_complex_ui_flow": has_complex_ui_flow,
+            "has_journey_surface": has_journey_surface,
             "has_arch_or_data_change": any_pat("arch_data"),
             "has_security_surface": has_security_surface,
             "has_dx_surface": any_pat("dx"),
@@ -685,6 +801,7 @@ def detect_repo_and_signals(
             "react_packages": react_packages,
             "governance_docs": governance_docs,
             "private_assets_sources": private_assets_sources,
+            "design_principle_docs": design_principle_docs,
             "bombadil_cli_on_path": shutil.which("bombadil"),
         },
         "file_buckets": {
@@ -824,6 +941,10 @@ def lane_result_path(run_dir: Path, round_num: int, lane_id: str) -> Path:
 
 def lane_prompt_path(run_dir: Path, round_num: int, lane_id: str) -> Path:
     return round_dir(run_dir, round_num) / "prompts" / f"{lane_id}.md"
+
+
+def lane_blind_prompt_path(run_dir: Path, round_num: int, lane_id: str) -> Path:
+    return round_dir(run_dir, round_num) / "prompts" / f"{lane_id}.blind.md"
 
 
 def lane_prompt_meta_path(run_dir: Path, round_num: int, lane_id: str) -> Path:
@@ -1023,12 +1144,115 @@ def _lane_meta_example(lane_cfg: dict[str, Any], active_rule_ids: set[str], mate
             "unfamiliar_language_check": "PASS | FAIL | N/A | UNVERIFIED",
             "unfamiliar_language_evidence": "原版/陌生语言版及观察者熟悉度说明",
             "company_cases_loaded": False,
+            "ux_coverage": {
+                prefix: {"passed": total, "failed": 0, "na": 0, "unverified": 0, "failed_ids": [], "unverified_ids": []}
+                for prefix, _, total in UX_GROUPS
+            },
         })
+    if "journey_walkthrough" in vals and "RV-UI-05" in active_rule_ids:
+        out["journey_walkthrough"] = {
+            "blind_mode": True,
+            "actor": "目标用户角色与背景",
+            "goal": "用户要完成的真实目标",
+            "actual_steps": ["1. 打开入口页...", "2. 找到主操作..."],
+            "observations": {
+                key: {"status": "PASS | FAIL | FRICTION | UNVERIFIED | N/A", "note": label}
+                for key, label in WALKTHROUGH_OBSERVATION_KEYS
+            },
+            "friction_points": [],
+        }
     if lid in ("business_acceptance", "business_functional"):
         out["acceptance"] = [{"id": "AC1", "expected": "预期结果", "actual": "实测结果", "evidence": ["test://..."], "status": "PASS"}]
+    if "journey_review" in vals and "RV-BIZ-05" in active_rule_ids:
+        out["journey_review"] = {
+            "journeys": [{
+                "id": "primary-journey",
+                "actor": "目标用户角色",
+                "goal": "用户想完成的核心目标",
+                "expected_stages": ["阶段 1（不含页面/按钮名）", "阶段 2", "阶段 3"],
+                "actual_steps": ["实际步骤 1", "实际步骤 2"],
+                "gap_summary": "预期旅程与实际路径的对比结论",
+                "anti_patterns_checked": {ap_id: "CLEAR | FOUND | N/A" for ap_id, _ in PRODUCT_ANTI_PATTERNS},
+                "verdict": "ALIGNED | FRICTION | NEEDS_REDESIGN | UNVERIFIED",
+            }]
+        }
     if lid == "release_readiness":
         out.update({"rollout": "放量计划", "rollback": "已验证回滚步骤", "monitoring": "业务与技术指标", "business_readiness": "知会对象与兜底"})
     return out
+
+
+def stitch_blind_walkthrough_prompt(
+    run_dir: Path,
+    manifest: dict[str, Any],
+    lane_id: str,
+    token: str,
+) -> str:
+    """Physically code-free prompt for Blind User Walkthrough (anti-anchoring).
+
+    Deliberately excludes git diff, changed files, source code paths, component names,
+    and internal module architecture so the reviewer experiences the product like a real user.
+    """
+    rnum = int(manifest["current_round"])
+    journeys = manifest.get("journeys") or []
+    intent_ctx = manifest.get("intent_context") or {}
+    lines: list[str] = [
+        f"# Blind User Walkthrough Prompt（无源码盲测）— `{lane_id}`",
+        "",
+        "## 1. 严格防锚定声明（必读）",
+        f"- **Run ID**: `{manifest['run_id']}` (Round `{rnum}`) | **Prompt Token**: `{token}`",
+        f"- **审查材料**: `{manifest['material']}`" + (f" | **产品入口 URL**: `{manifest['target_url']}`" if manifest.get("target_url") else ""),
+        "- **物理隔离红线**：本阶段你是一名**真实的目标用户**。完成走查记录前，**严禁阅读 git diff、源码文件、组件目录、路由表或任何内部模块说明**。",
+        "- **不要脑补成功**：找不到入口、需要猜内部模块、等待被阻塞、返回丢上下文，都要如实记为 `FRICTION` 或 `FAIL`；仅截图无法实操的项标 `UNVERIFIED`。",
+        "- **证据边界**：你的观察属于自动化认知筛查代理信号，不冒充真实用户可用性测试。",
+        "",
+        "## 2. 你的角色与要完成的真实任务",
+    ]
+    if journeys:
+        for idx, j in enumerate(journeys, 1):
+            lines.append(f"### 任务 {idx}: `{j.get('id', f'journey-{idx}')}`")
+            lines.append(f"- **你的身份（Actor）**: {j.get('actor', '目标用户')}")
+            lines.append(f"- **触发场景（Trigger）**: {j.get('trigger', '真实业务触发场景')}")
+            lines.append(f"- **你想达成的目标（Goal）**: {j.get('goal', '')}")
+            constraints = j.get("experience_constraints") or []
+            if constraints:
+                lines.append("- **体验底线约束**:")
+                for c in constraints:
+                    lines.append(f"  - {c}")
+            lines.append("")
+    else:
+        scenario = intent_ctx.get("user_and_scenario") or "请先基于产品公开定位明确目标用户身份与真实使用场景（不看代码）。"
+        goal = intent_ctx.get("goal") or "请先明确本次面向用户的核心任务目标，再从正常入口尝试独立完成。"
+        lines.append(f"- **用户与场景**: {scenario}")
+        lines.append(f"- **核心目标**: {goal}")
+        lines.append("")
+
+    lines.extend([
+        "## 3. 逐项必须记录的 7 项盲测观察点",
+        "实际走查后，必须逐一回答以下 7 项（每项给 `PASS` / `FRICTION` / `FAIL` / `UNVERIFIED` / `N/A` 与一手现象笔记）：",
+    ])
+    for idx, (key, label) in enumerate(WALKTHROUGH_OBSERVATION_KEYS, 1):
+        lines.append(f"{idx}. **`{key}`** — {label}")
+
+    lines.extend([
+        "",
+        "## 4. 盲测产出契约",
+        "完成无引导走查并锁定真实步骤 `actual_steps[]`、7 项 `observations` 与 `friction_points[]` 后，再把该结果并入 `ui_ux_experience` 的 `meta.journey_walkthrough` 一同提交（随后才允许阅读主 Prompt 中的源码/Bombadil/70 条细项审计）。",
+        "",
+        "```json",
+        json.dumps({
+            "blind_mode": True,
+            "actor": journeys[0].get("actor", "目标用户") if journeys else "目标用户",
+            "goal": journeys[0].get("goal", "完成核心任务") if journeys else (intent_ctx.get("goal") or "完成核心任务"),
+            "actual_steps": ["1. 打开正常入口，观察首屏...", "2. ..."],
+            "observations": {
+                key: {"status": "PASS | FRICTION | FAIL | UNVERIFIED | N/A", "note": "一手观察现象"}
+                for key, _ in WALKTHROUGH_OBSERVATION_KEYS
+            },
+            "friction_points": ["若存在卡点/迷路/丢上下文，逐条列出"],
+        }, ensure_ascii=False, indent=2),
+        "```",
+    ])
+    return "\n".join(lines) + "\n"
 
 
 def stitch_lane_prompt(
@@ -1075,6 +1299,11 @@ def stitch_lane_prompt(
     ]
     if manifest.get("intent_card"):
         lines.append(f"- **关联需求卡/Spec**: `{manifest['intent_card']}`")
+    if "journey_review" in lane_validators(lane_cfg) and manifest.get("journeys"):
+        lines.append(f"- **需求卡声明的预期旅程（Journey Contract，共 {len(manifest['journeys'])} 条，与界面实现解耦）**:")
+        for j in manifest["journeys"]:
+            stages = " → ".join(str(s) for s in (j.get("stages") or []))
+            lines.append(f"  - `{j.get('id', 'journey')}` ({j.get('actor', '')}): 目标={j.get('goal', '')} | 预期阶段: {stages}")
     repo_ctx = manifest["repo_context"]
     if repo_ctx.get("governance_docs"):
         lines.append(f"- **项目治理文档**: {', '.join(f'`{d}`' for d in repo_ctx['governance_docs'])}")
@@ -1084,6 +1313,13 @@ def stitch_lane_prompt(
         lines.append(f"- **私有案例/检查配置**: {', '.join(f'`{p}`' for p in repo_ctx['private_assets_sources'])}")
     elif "ui_ux_audit" in vals:
         lines.append("- **私有案例库**: 未检测到 `.evolution/` 或 `EE_PRIVATE_ASSETS`，请在结论注明“没有加载公司案例”。")
+    design_docs = repo_ctx.get("design_principle_docs") or []
+    if design_docs and ("ui_ux_audit" in vals or ("journey_review" in vals and "RV-BIZ-05" in active_rule_ids)):
+        lines.append(
+            "- **自动加载的 UI 设计理念 / 审美基准**: "
+            + ", ".join(f"`{d['name']}` ({d['layer']})" for d in design_docs)
+            + "（全文已自动注入下方第 6 节；评审时须对照核验并设 `meta.company_cases_loaded = true`）"
+        )
 
     ds = manifest.get("diff_stats", {})
     if ds:
@@ -1173,6 +1409,18 @@ def stitch_lane_prompt(
         ref_path = Path(custom_ref)
         excerpt = ref_path.read_text(encoding="utf-8").strip() if ref_path.is_file() else f"_(custom reference not found: {custom_ref})_"
         lines.extend([f"### 自定义参考: `{custom_ref}`", excerpt, ""])
+    already_injected = {str(Path(r).resolve()) for r in (lane_cfg.get("reference_files") or []) if Path(r).exists()}
+    if design_docs and ("ui_ux_audit" in vals or ("journey_review" in vals and "RV-BIZ-05" in active_rule_ids)):
+        for doc in design_docs[:6]:
+            if doc["path"] in already_injected:
+                continue
+            dpath = Path(doc["path"])
+            if not dpath.is_file():
+                continue
+            raw_txt = dpath.read_text(encoding="utf-8").strip()
+            if len(raw_txt) > 4000:
+                raw_txt = raw_txt[:4000].rstrip() + f"\n\n_(已截断前 4000 字符，完整版见 `{doc['path']}`)_"
+            lines.extend([f"### 自动加载的设计理念 ({doc['layer']}): `{doc['name']}`", raw_txt, ""])
     if "ui_ux_audit" in vals:
         lines.append(f"- 完整 70 条界面规则目录: `{REFERENCES_DIR / 'ui-ux-rules.md'}`（精简索引: `{REFERENCES_DIR / 'ui-ux-rules-short.md'}`）。")
         lines.append("")
@@ -1225,6 +1473,20 @@ def issue_prompt_for_lane(run_dir: Path, manifest: dict[str, Any], effective_cfg
     p_path = lane_prompt_path(run_dir, rnum, lane_id)
     m_path = lane_prompt_meta_path(run_dir, rnum, lane_id)
     first_issue = not m_path.exists()
+
+    lp = next(x for x in plan["lanes"] if x["id"] == lane_id)
+    active_ids = {r["id"] for r in lp.get("active_rules", [])}
+    blind_path_str: str | None = None
+    if "journey_walkthrough" in lane_validators(lp) and "RV-UI-05" in active_ids:
+        b_path = lane_blind_prompt_path(run_dir, rnum, lane_id)
+        blind_text = stitch_blind_walkthrough_prompt(run_dir, manifest, lane_id, token)
+        atomic_write_text(b_path, blind_text)
+        blind_path_str = str(b_path)
+        prompt_text = (
+            f"> **防锚定前置步骤（Blind Walkthrough）**：请先派发独立只读 Agent 仅读取无源码盲测 Prompt `{blind_path_str}` 完成真实用户走查并锁定观察结果，再继续执行下方全量审查。\n\n"
+            + prompt_text
+        )
+
     atomic_write_text(p_path, prompt_text)
     atomic_write_json(m_path, {
         "lane_id": lane_id,
@@ -1232,17 +1494,21 @@ def issue_prompt_for_lane(run_dir: Path, manifest: dict[str, Any], effective_cfg
         "prompt_token": token,
         "issued_at": now_iso(),
         "prompt_path": str(p_path),
+        "blind_prompt_path": blind_path_str,
         "workspace_fingerprint": manifest["workspace_fingerprint"],
     })
     if first_issue:
-        lp = next(x for x in plan["lanes"] if x["id"] == lane_id)
         record_event(
             run_dir, "LANE_DISPATCHED",
-            f"→ 已解锁并生成 Prompt: {lane_id} ({len(lp.get('active_rules', []))} 条规则)",
+            f"→ 已解锁并生成 Prompt: {lane_id} ({len(lp.get('active_rules', []))} 条规则)"
+            + (" [含无源码盲测 Prompt]" if blind_path_str else ""),
             round_num=rnum, phase_id=lp["phase"], lane_id=lane_id, status="PROMPT_ISSUED",
-            details={"token": token, "rules": [r["id"] for r in lp.get("active_rules", [])]},
+            details={"token": token, "rules": [r["id"] for r in lp.get("active_rules", [])], "blind_prompt_path": blind_path_str},
         )
-    return {"lane_id": lane_id, "prompt_token": token, "prompt_path": str(p_path), "prompt_text": prompt_text}
+    out = {"lane_id": lane_id, "prompt_token": token, "prompt_path": str(p_path), "prompt_text": prompt_text}
+    if blind_path_str:
+        out["blind_prompt_path"] = blind_path_str
+    return out
 
 
 def validate_lane_submission(
@@ -1373,9 +1639,11 @@ def validate_lane_submission(
             continue
         rid = str(f.get("rule_id", "")).strip()
         if not rid or not RULE_ID_RE.match(rid):
-            errors.append(f"findings[{idx}].rule_id must be a valid rule ID (e.g. RV-BUG-01, UX-VIS-09, ORG-PAY-01)")
-        elif not rid.startswith("UX-") and rid not in active_rules:
+            errors.append(f"findings[{idx}].rule_id must be a valid rule ID (e.g. RV-BUG-01, UX-VIS-09, AP-01, ORG-PAY-01)")
+        elif not rid.startswith("UX-") and not rid.startswith("AP-") and rid not in active_rules:
             errors.append(f"findings[{idx}].rule_id '{rid}' is not an active rule in lane {lane_id}")
+        elif rid.startswith("AP-") and "RV-BIZ-05" not in active_rules and "RV-UI-05" not in active_rules:
+            errors.append(f"findings[{idx}].rule_id '{rid}' requires active journey rule (RV-BIZ-05 or RV-UI-05)")
         if f.get("severity") not in VALID_SEVERITIES:
             errors.append(f"findings[{idx}].severity must be one of {', '.join(VALID_SEVERITIES)}")
         for field in ("location", "problem", "impact", "fix"):
@@ -1433,6 +1701,141 @@ def validate_lane_submission(
             errors.append(f"{lane_id} requires meta.unfamiliar_language_check in ('PASS', 'FAIL', 'N/A', 'UNVERIFIED')")
         if mat == "screenshot" and status == "PASS" and not unverified_items:
             errors.append(f"{lane_id} on screenshot-only material must list non-provable interactions in unverified_items[]")
+        loaded_design_docs = (manifest.get("repo_context") or {}).get("design_principle_docs") or []
+        ui04_chk = checks_map.get("RV-UI-04")
+        if loaded_design_docs and status in ("PASS", "FAIL") and (ui04_chk is None or ui04_chk.get("status") == "PASS"):
+            if meta.get("company_cases_loaded") is not True:
+                doc_names = ", ".join(d["name"] for d in loaded_design_docs)
+                errors.append(
+                    f"{lane_id}: design principle docs were auto-loaded ({doc_names}); "
+                    "confirm review against them by setting meta.company_cases_loaded=true"
+                )
+
+        # 14-group structured 70-rule UX coverage guard (RV-UI-03)
+        if "RV-UI-03" in active_rules and status in ("PASS", "FAIL"):
+            ux_cov = meta.get("ux_coverage")
+            if not isinstance(ux_cov, dict):
+                errors.append(f"{lane_id}: RV-UI-03 requires structured meta.ux_coverage covering all 14 UX groups (70 rules total)")
+            else:
+                finding_rule_ids = {str(f.get("rule_id", "")).strip() for f in findings if isinstance(f, dict)}
+                missing_groups = [prefix for prefix, _, _ in UX_GROUPS if prefix not in ux_cov]
+                if missing_groups:
+                    errors.append(f"{lane_id}: meta.ux_coverage missing UX groups: {', '.join(missing_groups)}")
+                for prefix, _, expected_total in UX_GROUPS:
+                    if prefix not in ux_cov:
+                        continue
+                    g_obj = ux_cov[prefix]
+                    if not isinstance(g_obj, dict):
+                        errors.append(f"{lane_id}: meta.ux_coverage.{prefix} must be an object with passed/failed/na/unverified counts")
+                        continue
+                    counts: dict[str, int] = {}
+                    bad_cnt = False
+                    for k in ("passed", "failed", "na", "unverified"):
+                        v = g_obj.get(k, 0)
+                        if isinstance(v, bool) or not isinstance(v, int) or v < 0:
+                            errors.append(f"{lane_id}: meta.ux_coverage.{prefix}.{k} must be a non-negative integer")
+                            bad_cnt = True
+                        else:
+                            counts[k] = v
+                    if not bad_cnt and sum(counts.values()) != expected_total:
+                        errors.append(
+                            f"{lane_id}: meta.ux_coverage.{prefix} counts sum to {sum(counts.values())}, expected {expected_total}"
+                        )
+                    failed_ids = g_obj.get("failed_ids", [])
+                    if not isinstance(failed_ids, list):
+                        errors.append(f"{lane_id}: meta.ux_coverage.{prefix}.failed_ids must be a list")
+                        failed_ids = []
+                    if not bad_cnt and len(failed_ids) != counts["failed"]:
+                        errors.append(f"{lane_id}: meta.ux_coverage.{prefix}.failed_ids length ({len(failed_ids)}) must match failed count ({counts['failed']})")
+                    for fid in failed_ids:
+                        sfid = str(fid).strip()
+                        if not UX_RULE_ID_RE.match(sfid) or not sfid.startswith(f"{prefix}-"):
+                            errors.append(f"{lane_id}: meta.ux_coverage.{prefix}.failed_ids contains invalid ID '{sfid}'")
+                        elif sfid not in finding_rule_ids:
+                            errors.append(f"{lane_id}: failed UX rule '{sfid}' in meta.ux_coverage.{prefix} must have a matching entry in findings[]")
+
+                    unverified_ids = g_obj.get("unverified_ids", [])
+                    if not isinstance(unverified_ids, list):
+                        errors.append(f"{lane_id}: meta.ux_coverage.{prefix}.unverified_ids must be a list")
+                        unverified_ids = []
+                    if not bad_cnt and len(unverified_ids) != counts["unverified"]:
+                        errors.append(f"{lane_id}: meta.ux_coverage.{prefix}.unverified_ids length ({len(unverified_ids)}) must match unverified count ({counts['unverified']})")
+                    for uid in unverified_ids:
+                        suid = str(uid).strip()
+                        if not UX_RULE_ID_RE.match(suid) or not suid.startswith(f"{prefix}-"):
+                            errors.append(f"{lane_id}: meta.ux_coverage.{prefix}.unverified_ids contains invalid ID '{suid}'")
+
+    # Journey Review validator (business_acceptance RV-BIZ-05)
+    biz05_chk = checks_map.get("RV-BIZ-05")
+    if "journey_review" in vals and "RV-BIZ-05" in active_rules and status in ("PASS", "FAIL") and (biz05_chk is None or biz05_chk.get("status") != "N/A"):
+        jr = meta.get("journey_review")
+        if not isinstance(jr, dict) or not isinstance(jr.get("journeys"), list) or not jr["journeys"]:
+            errors.append(f"{lane_id}: RV-BIZ-05 requires meta.journey_review.journeys[] with Expected vs Actual journey gap analysis")
+        else:
+            finding_rule_ids = {str(f.get("rule_id", "")).strip() for f in findings if isinstance(f, dict)}
+            found_aps: set[str] = set()
+            for idx, j in enumerate(jr["journeys"]):
+                if not isinstance(j, dict):
+                    errors.append(f"{lane_id}: meta.journey_review.journeys[{idx}] must be an object")
+                    continue
+                if not str(j.get("id", "")).strip():
+                    errors.append(f"{lane_id}: meta.journey_review.journeys[{idx}].id must be non-empty")
+                if not isinstance(j.get("expected_stages"), list) or not [s for s in j["expected_stages"] if str(s).strip()]:
+                    errors.append(f"{lane_id}: meta.journey_review.journeys[{idx}].expected_stages must be a non-empty list")
+                if not isinstance(j.get("actual_steps"), list) or not [s for s in j["actual_steps"] if str(s).strip()]:
+                    errors.append(f"{lane_id}: meta.journey_review.journeys[{idx}].actual_steps must be a non-empty list")
+                if not str(j.get("gap_summary", "")).strip():
+                    errors.append(f"{lane_id}: meta.journey_review.journeys[{idx}].gap_summary must be non-empty")
+                if str(j.get("verdict", "")).strip() not in ("ALIGNED", "FRICTION", "NEEDS_REDESIGN", "UNVERIFIED"):
+                    errors.append(f"{lane_id}: meta.journey_review.journeys[{idx}].verdict must be one of ALIGNED, FRICTION, NEEDS_REDESIGN, UNVERIFIED")
+                apc = j.get("anti_patterns_checked")
+                if not isinstance(apc, dict):
+                    errors.append(f"{lane_id}: meta.journey_review.journeys[{idx}].anti_patterns_checked must cover AP-01..AP-08")
+                else:
+                    missing_aps = [ap_id for ap_id, _ in PRODUCT_ANTI_PATTERNS if ap_id not in apc]
+                    if missing_aps:
+                        errors.append(f"{lane_id}: meta.journey_review.journeys[{idx}].anti_patterns_checked missing {', '.join(missing_aps)}")
+                    for ap_id, _ in PRODUCT_ANTI_PATTERNS:
+                        if ap_id in apc:
+                            val = str(apc[ap_id]).strip()
+                            if val not in ("CLEAR", "FOUND", "N/A"):
+                                errors.append(f"{lane_id}: anti_patterns_checked.{ap_id} must be CLEAR, FOUND, or N/A")
+                            elif val == "FOUND":
+                                found_aps.add(ap_id)
+            if found_aps and not (finding_rule_ids & ({"RV-BIZ-05"} | found_aps)):
+                errors.append(f"{lane_id}: anti-patterns marked FOUND ({', '.join(sorted(found_aps))}) must be recorded in findings[] with matching AP-* or RV-BIZ-05 rule_id")
+
+    # Blind User Walkthrough validator (ui_ux_experience RV-UI-05)
+    ui05_chk = checks_map.get("RV-UI-05")
+    if "journey_walkthrough" in vals and "RV-UI-05" in active_rules and status in ("PASS", "FAIL") and (ui05_chk is None or ui05_chk.get("status") != "N/A"):
+        jw = meta.get("journey_walkthrough")
+        if not isinstance(jw, dict):
+            errors.append(f"{lane_id}: RV-UI-05 requires meta.journey_walkthrough with blind_mode, actor, goal, actual_steps, and 7 observations")
+        else:
+            if not isinstance(jw.get("blind_mode"), bool):
+                errors.append(f"{lane_id}: meta.journey_walkthrough.blind_mode must be a boolean")
+            if not str(jw.get("actor", "")).strip():
+                errors.append(f"{lane_id}: meta.journey_walkthrough.actor must be non-empty")
+            if not str(jw.get("goal", "")).strip():
+                errors.append(f"{lane_id}: meta.journey_walkthrough.goal must be non-empty")
+            if not isinstance(jw.get("actual_steps"), list) or not [s for s in jw["actual_steps"] if str(s).strip()]:
+                errors.append(f"{lane_id}: meta.journey_walkthrough.actual_steps must be a non-empty list")
+            if not isinstance(jw.get("friction_points", []), list):
+                errors.append(f"{lane_id}: meta.journey_walkthrough.friction_points must be a list")
+            obs = jw.get("observations")
+            if not isinstance(obs, dict):
+                errors.append(f"{lane_id}: meta.journey_walkthrough.observations must cover all 7 walkthrough observation keys")
+            else:
+                missing_obs = [k for k, _ in WALKTHROUGH_OBSERVATION_KEYS if k not in obs]
+                if missing_obs:
+                    errors.append(f"{lane_id}: meta.journey_walkthrough.observations missing keys: {', '.join(missing_obs)}")
+                for k, _ in WALKTHROUGH_OBSERVATION_KEYS:
+                    if k not in obs:
+                        continue
+                    v = obs[k]
+                    ost = str(v.get("status", "")).strip() if isinstance(v, dict) else str(v).strip()
+                    if ost not in VALID_OBSERVATION_STATUSES:
+                        errors.append(f"{lane_id}: meta.journey_walkthrough.observations.{k} status must be one of {', '.join(VALID_OBSERVATION_STATUSES)}")
 
     return errors
 
@@ -1744,6 +2147,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         }
 
     ui_override: bool | None = True if args.ui_interactive else (False if args.no_ui_interactive else None)
+    journey_override: bool | None = True if args.journey else (False if args.no_journey else None)
     detected = detect_repo_and_signals(
         target=git_root or target,
         git_info=git_info,
@@ -1754,6 +2158,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         ui_interactive_override=ui_override,
         has_release_flag=args.has_release,
         intent_card=args.intent_card,
+        journey_override=journey_override,
     )
     plan = build_plan(effective_cfg, args.mode, detected["signals"], git_info["changed_files"])
 
@@ -1792,6 +2197,8 @@ def cmd_init(args: argparse.Namespace) -> int:
         "dri": args.dri or "",
         "reviewer": args.reviewer or "",
         "intent_card": args.intent_card or "",
+        "journeys": detected["journeys"],
+        "intent_context": detected["intent_context"],
         "target_url": args.target_url or "",
         "applied_overlays": effective_cfg["applied_overlays"],
         **git_info,
@@ -1960,7 +2367,7 @@ def cmd_next(args: argparse.Namespace) -> int:
     dispatched: list[dict[str, Any]] = []
     for lp in ready:
         info = issue_prompt_for_lane(run_dir, manifest, effective_cfg, plan, results, lp["id"])
-        dispatched.append({
+        item = {
             "lane_id": lp["id"],
             "title": lp["title"],
             "owner_skill": lp["owner_skill"],
@@ -1970,7 +2377,10 @@ def cmd_next(args: argparse.Namespace) -> int:
             "prompt_path": info["prompt_path"],
             "submit_command": f'python3 "{runner_path}" submit --run "{run_dir}" --lane {lp["id"]} --input -',
             "prompt_text": info["prompt_text"] if args.inline else None,
-        })
+        }
+        if info.get("blind_prompt_path"):
+            item["blind_prompt_path"] = info["blind_prompt_path"]
+        dispatched.append(item)
 
     progress = compute_progress(run_dir, manifest, plan, results)
     active_phase = progress["active_phase"]
@@ -2439,6 +2849,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--disable-lane", action="append", help="Disable an optional lane: <lane_id>:<reason>.")
     p_init.add_argument("--ui-interactive", action="store_true")
     p_init.add_argument("--no-ui-interactive", action="store_true")
+    p_init.add_argument("--journey", action="store_true", help="Force-enable User Journey / Product Cognition review (RV-BIZ-05 & RV-UI-05).")
+    p_init.add_argument("--no-journey", action="store_true", help="Explicitly disable User Journey review for pure copy/visual tweaks.")
     p_init.add_argument("--has-release", action="store_true")
     p_init.add_argument("--task-id", default=None)
     p_init.add_argument("--dri", default=None)

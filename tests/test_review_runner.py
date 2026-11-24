@@ -71,6 +71,68 @@ def pass_checks(rule_ids: list[str], note: str = "verified") -> list[dict[str, s
     return [{"id": rid, "status": "PASS", "note": note} for rid in rule_ids]
 
 
+def full_ux_coverage(
+    runner,
+    *,
+    failed: dict[str, list[str]] | None = None,
+    unverified: dict[str, list[str]] | None = None,
+) -> dict[str, dict]:
+    failed = failed or {}
+    unverified = unverified or {}
+    cov: dict[str, dict] = {}
+    for prefix, _, total in runner.UX_GROUPS:
+        f_ids = list(failed.get(prefix, []))
+        u_ids = list(unverified.get(prefix, []))
+        passed = total - len(f_ids) - len(u_ids)
+        cov[prefix] = {
+            "passed": passed,
+            "failed": len(f_ids),
+            "na": 0,
+            "unverified": len(u_ids),
+            "failed_ids": f_ids,
+            "unverified_ids": u_ids,
+        }
+    return cov
+
+
+def sample_journey_review(runner, *, verdict: str = "ALIGNED", found_aps: set[str] | None = None) -> dict:
+    found_aps = found_aps or set()
+    return {
+        "journeys": [{
+            "id": "submit-approval",
+            "actor": "finance-approver",
+            "goal": "审核并提交大额订单审批决策",
+            "expected_stages": ["收到待审批事项", "查看订单金额与依据", "提交审批并获得反馈"],
+            "actual_steps": (
+                ["1. 打开通知", "2. 进任务模块", "3. 进知识库查依据", "4. 返回任务提交", "5. 进动态确认"]
+                if found_aps
+                else ["1. 在待审批工作台查看单据与金额依据", "2. 点击批准并立即展示结果"]
+            ),
+            "gap_summary": "存在跨模块来回跳转，建议围绕待决策事项组织工作主线" if found_aps else "实际路径与预期旅程高度一致，无冗余跳转。",
+            "anti_patterns_checked": {
+                ap_id: ("FOUND" if ap_id in found_aps else "CLEAR")
+                for ap_id, _ in runner.PRODUCT_ANTI_PATTERNS
+            },
+            "verdict": verdict,
+        }]
+    }
+
+
+def sample_journey_walkthrough(runner, *, obs_override: dict[str, str] | None = None, friction: list[str] | None = None) -> dict:
+    obs_override = obs_override or {}
+    return {
+        "blind_mode": True,
+        "actor": "finance-approver",
+        "goal": "审核并提交大额订单审批决策",
+        "actual_steps": ["1. 打开首页入口", "2. 找到待审批订单并提交"],
+        "observations": {
+            key: {"status": obs_override.get(key, "PASS"), "note": f"{label} observed"}
+            for key, label in runner.WALKTHROUGH_OBSERVATION_KEYS
+        },
+        "friction_points": list(friction or []),
+    }
+
+
 class ReviewRunnerTests(unittest.TestCase):
     def setUp(self) -> None:
         self.runner = load_runner()
@@ -103,7 +165,7 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertEqual(0, code)
         cat = json.loads(out)
         self.assertEqual(6, cat["total_lanes"])
-        self.assertEqual(48, cat["total_rules"])
+        self.assertEqual(50, cat["total_rules"])
         self.assertEqual(
             [
                 "engineering_baseline",
@@ -117,13 +179,17 @@ class ReviewRunnerTests(unittest.TestCase):
         )
         json_ids = [r["id"] for l in cat["lanes"] for r in l["rules"]]
         self.assertEqual(len(json_ids), len(set(json_ids)))
+        self.assertIn("RV-BIZ-05", json_ids)
+        self.assertIn("RV-UI-05", json_ids)
 
         doc_text = (ROOT / "references/review-rules.md").read_text(encoding="utf-8")
         doc_ids = sorted(set(re.findall(r"\*\*`(RV-[A-Z]+-\d{2})`", doc_text)))
         self.assertEqual(sorted(json_ids), doc_ids)
+        self.assertEqual(70, sum(total for _, _, total in self.runner.UX_GROUPS))
 
     def test_per_rule_signal_activation_avoids_noise(self) -> None:
         # Pure non-auth Python PR with README DX change:
+        # - business_acceptance has NO RV-BIZ-05 (no journey surface)
         # - code_quality has NO RV-REACT-*, only RV-BUG-01..05, RV-TEST-01, RV-SMELL-01..10 (16 rules)
         # - security_architecture activates RV-SEC-01, RV-SEC-03, RV-SEC-04, RV-DX-01
         repo = make_sample_repo(self.tmp_path, with_react_ui=False, with_auth=False, with_dx=True)
@@ -134,6 +200,8 @@ class ReviewRunnerTests(unittest.TestCase):
         ])
         self.assertEqual(0, code, out)
         res = json.loads(out)
+        self.assertFalse(res["signals"]["has_journey_surface"])
+        self.assertNotIn("RV-BIZ-05", res["active_rule_ids"]["business_acceptance"])
         self.assertNotIn("ui_ux_experience", res["required_lanes"])
         self.assertEqual(
             ["RV-SEC-01", "RV-SEC-03", "RV-SEC-04", "RV-DX-01"],
@@ -145,6 +213,106 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertIn("RV-BUG-01", cq_rules)
         self.assertIn("RV-SMELL-01", cq_rules)
         self.assertIn("RV-SMELL-10", cq_rules)
+
+    def test_journey_trigger_precision_skips_css_and_copy_tweaks(self) -> None:
+        repo = self.tmp_path / "css_only_repo"
+        repo.mkdir()
+        git(repo, "init", "-b", "main")
+        git(repo, "config", "user.email", "dev@example.com")
+        git(repo, "config", "user.name", "Dev")
+        (repo / "styles").mkdir()
+        (repo / "styles" / "dashboard.css").write_text(".card { padding: 8px; }\n", encoding="utf-8")
+        git(repo, "add", ".")
+        git(repo, "commit", "-m", "init")
+
+        git(repo, "checkout", "-b", "fix/spacing")
+        (repo / "styles" / "dashboard.css").write_text(".card { padding: 12px; }\n", encoding="utf-8")
+        git(repo, "add", ".")
+        git(repo, "commit", "-m", "style: adjust card padding")
+
+        state_dir = self.tmp_path / "css_state"
+        code, out, _ = self.run_cli([
+            "init", "--target", str(repo), "--base", "main",
+            "--mode", "pr", "--level", "L1", "--state-dir", str(state_dir), "--json",
+        ])
+        self.assertEqual(0, code, out)
+        res = json.loads(out)
+        # Pure CSS tweak activates ui_ux_experience, but MUST NOT activate RV-BIZ-05 / RV-UI-05!
+        self.assertIn("ui_ux_experience", res["required_lanes"])
+        self.assertFalse(res["signals"]["has_journey_surface"])
+        self.assertNotIn("RV-BIZ-05", res["active_rule_ids"]["business_acceptance"])
+        self.assertNotIn("RV-UI-05", res["active_rule_ids"]["ui_ux_experience"])
+
+    def test_blind_walkthrough_prompt_is_physically_code_free(self) -> None:
+        repo = make_sample_repo(self.tmp_path, with_react_ui=True, with_auth=True)
+        intent_card = self.tmp_path / "intent.json"
+        intent_card.write_text(json.dumps({
+            "schema_version": "1",
+            "task_id": "PRAXIS-42",
+            "revision": 1,
+            "original_intent": "让企业员工提交行业文章给智脑分析并在需要时参与决策",
+            "goal": "提交行业信号并获得分析决策反馈",
+            "acceptance": [{"id": "AC1", "observable_result": "员工可提交信号并看到分析结果"}],
+            "authorization_level": "L1",
+            "journeys": [{
+                "id": "submit-industry-signal",
+                "actor": "enterprise-employee",
+                "trigger": "发现一篇有价值的行业文章",
+                "goal": "让企业智脑分析文章并在需要时参与决策",
+                "stages": ["提交信息", "确认已接收", "后台处理不阻塞", "获取结果与依据", "必要时参与决策"],
+                "success": ["文章进入分析流程", "用户收到决策提示"],
+                "experience_constraints": ["不要求用户理解内部模块", "等待期间不阻塞其他工作"],
+            }],
+        }, ensure_ascii=False), encoding="utf-8")
+
+        state_dir = self.tmp_path / "blind_state"
+        code, out, _ = self.run_cli([
+            "init", "--target", str(repo), "--base", "main",
+            "--mode", "delivery", "--level", "L1",
+            "--dri", "alice", "--reviewer", "bob",
+            "--intent-card", str(intent_card),
+            "--target-url", "http://127.0.0.1:3000",
+            "--state-dir", str(state_dir), "--json",
+        ])
+        self.assertEqual(0, code, out)
+        init_res = json.loads(out)
+        self.assertTrue(init_res["signals"]["has_journey_surface"])
+        self.assertIn("RV-BIZ-05", init_res["active_rule_ids"]["business_acceptance"])
+        self.assertIn("RV-UI-05", init_res["active_rule_ids"]["ui_ux_experience"])
+
+        # Complete Phase 1 to unlock Phase 2
+        _, out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
+        p1 = json.loads(out)["ready_lanes"][0]
+        self.assertEqual(0, self.submit_json(state_dir, "engineering_baseline", {
+            "prompt_token": p1["prompt_token"],
+            "status": "PASS",
+            "summary": "baseline ok",
+            "checks": pass_checks(p1["active_rule_ids"], "ok"),
+            "evidence": ["pytest ok"],
+        })[0])
+
+        code, out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
+        self.assertEqual(0, code)
+        p2_map = {x["lane_id"]: x for x in json.loads(out)["ready_lanes"]}
+        blind_path = Path(p2_map["ui_ux_experience"]["blind_prompt_path"])
+        self.assertTrue(blind_path.is_file())
+        blind_text = blind_path.read_text(encoding="utf-8")
+
+        # Blind prompt MUST contain actor/trigger/goal/URL/7 observations, and MUST NOT leak code/diff/filenames!
+        self.assertIn("enterprise-employee", blind_text)
+        self.assertIn("submit-industry-signal", blind_text)
+        self.assertIn("http://127.0.0.1:3000", blind_text)
+        self.assertIn("entry_clarity", blind_text)
+        self.assertIn("goal_achieved", blind_text)
+        self.assertNotIn("ApprovalForm.tsx", blind_text)
+        self.assertNotIn("auth_policy.py", blind_text)
+        self.assertNotIn("app.py", blind_text)
+        self.assertNotIn("Diff 规模", blind_text)
+
+        # Business prompt receives the implementation-agnostic Journey Contract
+        biz_text = Path(p2_map["business_acceptance"]["prompt_path"]).read_text(encoding="utf-8")
+        self.assertIn("submit-industry-signal", biz_text)
+        self.assertIn("RV-BIZ-05", biz_text)
 
     def test_full_react_ui_delivery_pipeline_concurrent_html_and_recheck(self) -> None:
         repo = make_sample_repo(self.tmp_path, with_react_ui=True, with_auth=True)
@@ -208,12 +376,12 @@ class ReviewRunnerTests(unittest.TestCase):
             {"business_acceptance", "code_quality", "security_architecture", "ui_ux_experience"},
             set(p2_map),
         )
-        # Verify React Doctor + 10 itemized smells appear in code_quality prompt, Bombadil + UX appear in ui_ux_experience
         cq_prompt = Path(p2_map["code_quality"]["prompt_path"]).read_text(encoding="utf-8")
         self.assertIn("RV-REACT-01", cq_prompt)
         self.assertIn("RV-SMELL-01", cq_prompt)
         self.assertIn("RV-SMELL-10", cq_prompt)
         ui_prompt = Path(p2_map["ui_ux_experience"]["prompt_path"]).read_text(encoding="utf-8")
+        self.assertIn("RV-UI-05", ui_prompt)
         self.assertIn("RV-BOMB-01", ui_prompt)
         self.assertIn("RV-UI-02", ui_prompt)
 
@@ -228,10 +396,21 @@ class ReviewRunnerTests(unittest.TestCase):
             "business_acceptance": {
                 "prompt_token": p2_map["business_acceptance"]["prompt_token"],
                 "status": "PASS",
-                "summary": "business acceptance verified",
+                "summary": "business acceptance & journey verified",
                 "checks": pass_checks(p2_map["business_acceptance"]["active_rule_ids"], "checked"),
                 "evidence": ["pytest#ac1 passed"],
-                "meta": {"acceptance": [{"id": "AC1", "expected": "ok", "actual": "ok", "evidence": ["pytest#ac1"], "status": "PASS"}]},
+                "findings": [{
+                    "rule_id": "AP-02",
+                    "severity": "P2",
+                    "location": "ApprovalFlow",
+                    "problem": "提交后需切到动态页确认状态，增加多余跳转",
+                    "impact": "用户需跨模块拼接流程",
+                    "fix": "在当前审批视图内联展示提交结果与下一步",
+                }],
+                "meta": {
+                    "acceptance": [{"id": "AC1", "expected": "ok", "actual": "ok", "evidence": ["pytest#ac1"], "status": "PASS"}],
+                    "journey_review": sample_journey_review(self.runner, verdict="FRICTION", found_aps={"AP-02"}),
+                },
             },
             "code_quality": {
                 "prompt_token": p2_map["code_quality"]["prompt_token"],
@@ -272,10 +451,18 @@ class ReviewRunnerTests(unittest.TestCase):
             "ui_ux_experience": {
                 "prompt_token": p2_map["ui_ux_experience"]["prompt_token"],
                 "status": "PASS",
-                "summary": "1m Bombadil exploration & UI/UX audit passed",
+                "summary": "Blind walkthrough, Bombadil exploration & 70 UX rules verified",
                 "checks": pass_checks(p2_map["ui_ux_experience"]["active_rule_ids"], "verified"),
                 "evidence": ["./output/bombadil/r1/trace.json", "ApprovalForm live walkthrough"],
                 "commands_run": ["bombadil browser test --headless --time-limit 1m --exit-on-violation --output-path ./output/bombadil/r1 http://127.0.0.1:3000 ./bombadil/review.spec.ts"],
+                "findings": [{
+                    "rule_id": "UX-VIS-05",
+                    "severity": "P2",
+                    "location": "src/components/ApprovalForm.tsx",
+                    "problem": "筛选区与提交区视觉分组偏紧",
+                    "impact": "扫读不易分清分区",
+                    "fix": "增加分组间距 token",
+                }],
                 "meta": {
                     "applicability": "applicable",
                     "execution_state": "completed_no_violation",
@@ -285,6 +472,8 @@ class ReviewRunnerTests(unittest.TestCase):
                     "exit_code": 0,
                     "material_type": "runnable",
                     "unfamiliar_language_check": "PASS",
+                    "ux_coverage": full_ux_coverage(self.runner, failed={"UX-VIS": ["UX-VIS-05"]}, unverified={"UX-A11Y": ["UX-A11Y-04"]}),
+                    "journey_walkthrough": sample_journey_walkthrough(self.runner, obs_override={"next_step_clarity": "FRICTION"}, friction=["提交后缺少下一步指引"]),
                 },
             },
         }
@@ -305,7 +494,7 @@ class ReviewRunnerTests(unittest.TestCase):
         for lid, rc, msg in worker_results:
             self.assertEqual(0, rc, f"{lid} failed: {msg}")
 
-        # 4. Early stop on P1 -> NOT_READY, release_readiness listed as unrun, report.html generated & XSS-safe
+        # 4. Early stop on P1 -> NOT_READY, report.html includes Journey Gap, 8 AP chips, 7 walkthrough obs & 14-group UX matrix!
         code, out, _ = self.run_cli([
             "finalize", "--run", str(state_dir),
             "--early-stop", "--reason", "P1 RV-BUG-01 blocks release", "--json",
@@ -319,9 +508,13 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertTrue(html_path1.is_file())
         html1 = html_path1.read_text(encoding="utf-8")
         self.assertIn("还不能交付", html1)
-        self.assertIn("RV-BUG-01", html1)
-        self.assertIn("RV-SMELL-01", html1)
-        self.assertIn("Validate payload before access", html1)
+        self.assertIn("产品认知与用户旅程对比", html1)
+        self.assertIn("submit-approval", html1)
+        self.assertIn("AP-02", html1)
+        self.assertIn("Blind User Walkthrough", html1)
+        self.assertIn("14 组 70 条 UI/UX 规则覆盖矩阵", html1)
+        self.assertIn("UX-VIS-05", html1)
+        self.assertIn("UX-A11Y-04", html1)
         self.assertNotIn("<script>alert(1)</script>", html1)
         self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html1)
 
@@ -358,7 +551,10 @@ class ReviewRunnerTests(unittest.TestCase):
                     "commands_run": ["pytest"],
                 }
                 if lid == "business_acceptance":
-                    pl["meta"] = {"acceptance": [{"id": "AC1", "expected": "ok", "actual": "ok", "evidence": ["pytest#ac1"], "status": "PASS"}]}
+                    pl["meta"] = {
+                        "acceptance": [{"id": "AC1", "expected": "ok", "actual": "ok", "evidence": ["pytest#ac1"], "status": "PASS"}],
+                        "journey_review": sample_journey_review(self.runner, verdict="ALIGNED"),
+                    }
                 if lid == "code_quality":
                     pl["meta"] = {"scope": "changed", "no_telemetry": True, "no_supply_chain": True, "skipped_files": []}
                 if lid == "release_readiness":
@@ -375,7 +571,7 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertIn("可以交付", html2)
         self.assertIn("过程日志", html2)
 
-    def test_itemized_validation_guards_reject_missing_or_inconsistent_rules(self) -> None:
+    def test_itemized_validation_guards_including_ux_coverage_and_journey(self) -> None:
         repo = make_sample_repo(self.tmp_path, with_react_ui=True, with_auth=False)
         state_dir = self.tmp_path / "guard_state"
         self.assertEqual(0, self.run_cli([
@@ -434,7 +630,7 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertEqual(2, code)
         self.assertTrue(any("rule_id must be a valid" in e for e in res["errors"]))
 
-        # Pass Phase 1 to unlock Phase 2 and test React Doctor + Bombadil guards inside clustered dimensions
+        # Pass Phase 1 to unlock Phase 2
         self.assertEqual(0, self.submit_json(state_dir, "engineering_baseline", {
             "prompt_token": p1_map["engineering_baseline"]["prompt_token"],
             "status": "PASS",
@@ -445,7 +641,7 @@ class ReviewRunnerTests(unittest.TestCase):
         code, out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
         p2_map = {i["lane_id"]: i for i in json.loads(out)["ready_lanes"]}
 
-        # 5. Bombadil tool missing marked as N/A inside ui_ux_experience is REJECTED
+        # 5. Bombadil tool missing marked as N/A + missing ux_coverage + missing journey_walkthrough REJECTED
         ui_checks_bad = []
         for r in p2_map["ui_ux_experience"]["active_rule_ids"]:
             if r.startswith("RV-BOMB-"):
@@ -467,8 +663,49 @@ class ReviewRunnerTests(unittest.TestCase):
         })
         self.assertEqual(2, code)
         self.assertTrue(any("must be BLOCKED, not N/A" in e for e in res["errors"]))
+        self.assertTrue(any("meta.ux_coverage" in e for e in res["errors"]))
+        self.assertTrue(any("meta.journey_walkthrough" in e for e in res["errors"]))
 
-        # 6. React Doctor with skipped_files marked PASS inside code_quality is REJECTED
+        # 6. ux_coverage with wrong rule count or unlinked failed_id is REJECTED
+        bad_cov = full_ux_coverage(self.runner, failed={"UX-VIS": ["UX-VIS-05"]})
+        bad_cov["UX-FLOW"]["passed"] = 1  # sum=1 != 3
+        code, res = self.submit_json(state_dir, "ui_ux_experience", {
+            "prompt_token": p2_map["ui_ux_experience"]["prompt_token"],
+            "status": "PASS",
+            "summary": "bad ux coverage counts",
+            "checks": pass_checks(p2_map["ui_ux_experience"]["active_rule_ids"], "ok"),
+            "evidence": ["live walkthrough"],
+            "commands_run": ["bombadil browser test ..."],
+            "meta": {
+                "applicability": "applicable",
+                "execution_state": "completed_no_violation",
+                "command": "bombadil ...",
+                "budget": "1m",
+                "material_type": "runnable",
+                "unfamiliar_language_check": "PASS",
+                "ux_coverage": bad_cov,
+                "journey_walkthrough": sample_journey_walkthrough(self.runner),
+            },
+        })
+        self.assertEqual(2, code)
+        self.assertTrue(any("UX-FLOW counts sum to 1, expected 3" in e for e in res["errors"]))
+        self.assertTrue(any("failed UX rule 'UX-VIS-05'" in e for e in res["errors"]))
+
+        # 7. business_acceptance with RV-BIZ-05 active and FOUND anti-pattern without finding is REJECTED
+        code, res = self.submit_json(state_dir, "business_acceptance", {
+            "prompt_token": p2_map["business_acceptance"]["prompt_token"],
+            "status": "PASS",
+            "summary": "found anti-pattern but omitted finding",
+            "checks": pass_checks(p2_map["business_acceptance"]["active_rule_ids"], "ok"),
+            "evidence": ["walkthrough"],
+            "meta": {
+                "journey_review": sample_journey_review(self.runner, verdict="NEEDS_REDESIGN", found_aps={"AP-01"}),
+            },
+        })
+        self.assertEqual(2, code)
+        self.assertTrue(any("anti-patterns marked FOUND (AP-01)" in e for e in res["errors"]))
+
+        # 8. React Doctor with skipped_files marked PASS inside code_quality is REJECTED
         code, res = self.submit_json(state_dir, "code_quality", {
             "prompt_token": p2_map["code_quality"]["prompt_token"],
             "status": "PASS",
@@ -492,6 +729,7 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertEqual(0, code, out)
         init_res = json.loads(out)
         self.assertEqual({"ui_ux_experience"}, set(init_res["required_lanes"]))
+        self.assertNotIn("RV-UI-05", init_res["active_rule_ids"]["ui_ux_experience"])
 
         code, out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
         u_item = json.loads(out)["ready_lanes"][0]
@@ -501,6 +739,10 @@ class ReviewRunnerTests(unittest.TestCase):
             else {"id": r, "status": "PASS", "note": "observed within screenshot boundary"}
             for r in u_item["active_rule_ids"]
         ]
+        ux_cov_screenshot = full_ux_coverage(
+            self.runner,
+            unverified={"UX-IA": ["UX-IA-02", "UX-IA-03"], "UX-A11Y": ["UX-A11Y-02", "UX-A11Y-05"]},
+        )
 
         # Screenshot without unverified_items rejected
         code, res = self.submit_json(state_dir, "ui_ux_experience", {
@@ -514,6 +756,7 @@ class ReviewRunnerTests(unittest.TestCase):
                 "execution_state": "not_applicable",
                 "material_type": "screenshot",
                 "unfamiliar_language_check": "UNVERIFIED",
+                "ux_coverage": ux_cov_screenshot,
             },
         })
         self.assertEqual(2, code)
@@ -532,6 +775,7 @@ class ReviewRunnerTests(unittest.TestCase):
                 "execution_state": "not_applicable",
                 "material_type": "screenshot",
                 "unfamiliar_language_check": "UNVERIFIED",
+                "ux_coverage": ux_cov_screenshot,
             },
         })[0])
 
@@ -542,6 +786,7 @@ class ReviewRunnerTests(unittest.TestCase):
         html_text = Path(fin["report_html_path"]).read_text(encoding="utf-8")
         self.assertIn("缺证据没法判断", html_text)
         self.assertIn("键盘焦点通路", html_text)
+        self.assertIn("UX-IA-02", html_text)
 
     def test_delivery_independent_reviewer_enforced_via_gate_check(self) -> None:
         repo = make_sample_repo(self.tmp_path, with_react_ui=False, with_auth=False)
@@ -588,7 +833,6 @@ class ReviewRunnerTests(unittest.TestCase):
         custom_ref = self.tmp_path / "fintech-guide.md"
         custom_ref.write_text("# Fintech Guide\nAll ledger writes must be idempotent and use integer cents.\n", encoding="utf-8")
 
-        # 1. Project auto-discovered overlay under <repo>/.evolution/review_pipeline.json
         evo_dir = repo / ".evolution"
         evo_dir.mkdir()
         (evo_dir / "review_pipeline.json").write_text(json.dumps({
@@ -620,7 +864,6 @@ class ReviewRunnerTests(unittest.TestCase):
             },
         }, ensure_ascii=False), encoding="utf-8")
 
-        # 2. Hard gate disable attempt via CLI overlay MUST be rejected!
         bad_overlay = self.tmp_path / "bad_overlay.json"
         bad_overlay.write_text(json.dumps({
             "schema_version": "1",
@@ -634,15 +877,13 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertEqual(2, code)
         self.assertIn("cannot disable hard gate lane 'engineering_baseline'", out)
 
-        # 3. Catalog with --target auto-discovers project overlay!
         code, out, _ = self.run_cli(["catalog", "--target", str(repo), "--json"])
         self.assertEqual(0, code)
         cat = json.loads(out)
         self.assertEqual(7, cat["total_lanes"])   # 6 base + fintech_ledger
-        self.assertEqual(50, cat["total_rules"])  # 48 base + FIN-PAY-01 + ORG-SMELL-11
+        self.assertEqual(52, cat["total_rules"])  # 50 base + FIN-PAY-01 + ORG-SMELL-11
         self.assertEqual("project-fintech", cat["applied_overlays"][0]["name"])
 
-        # 4. Run full lifecycle with custom phase/lane/rule and verify process logs + HTML!
         state_dir = self.tmp_path / "overlay_state"
         code, out, _ = self.run_cli([
             "init", "--target", str(repo), "--base", "main",
@@ -682,7 +923,6 @@ class ReviewRunnerTests(unittest.TestCase):
 
         self.assertGreaterEqual(len(phase_done_seen), 3, phase_done_seen)
 
-        # Finalize -> READY, report.md + report.html include custom rules & Timeline process logs
         code, out, _ = self.run_cli(["finalize", "--run", str(state_dir), "--json"])
         self.assertEqual(0, code, out)
         fin = json.loads(out)
@@ -695,7 +935,6 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertIn("ORG-SMELL-11", html_text)
         self.assertIn("fintech_ledger", html_text)
 
-        # Verify `log` command + progress.log file on disk
         code, log_out, _ = self.run_cli(["log", "--run", str(state_dir)])
         self.assertEqual(0, code)
         self.assertIn("✓ 模块已完成: fintech_ledger [PASS]", log_out)
@@ -703,6 +942,92 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertIn("★ 总决完成: READY", log_out)
         self.assertTrue((state_dir / "events.jsonl").is_file())
         self.assertTrue((state_dir / "progress.log").is_file())
+
+    def test_design_principles_auto_discovery_injection_and_preset_overlay(self) -> None:
+        # 1. Verify bundled preset overlay loads cleanly via catalog and adds DES-PHI-01..06
+        preset_overlay = ROOT / "data" / "review_overlays" / "ui-design-philosophy.example.json"
+        code, out, _ = self.run_cli(["catalog", "--overlay", str(preset_overlay), "--json"])
+        self.assertEqual(0, code, out)
+        cat = json.loads(out)
+        self.assertEqual(56, cat["total_rules"])  # 50 base + 6 DES-PHI-*
+        ui_lane = next(l for l in cat["lanes"] if l["id"] == "ui_ux_experience")
+        ui_rule_ids = {r["id"] for r in ui_lane["rules"]}
+        for i in range(1, 7):
+            self.assertIn(f"DES-PHI-0{i}", ui_rule_ids)
+
+        # 2. Zero-config auto-discovery of DESIGN.md + .evolution/design-principles/*.md
+        repo = make_sample_repo(self.tmp_path, with_react_ui=True, with_auth=False)
+        (repo / "DESIGN.md").write_text("# Project Design System\nUse 8px spacing scale and avoid nested border cards.\n", encoding="utf-8")
+        dp_dir = repo / ".evolution" / "design-principles"
+        dp_dir.mkdir(parents=True, exist_ok=True)
+        (dp_dir / "praxis-taste.md").write_text("# Praxis Taste\nPrimary decision workbench always leads over module tabs.\n", encoding="utf-8")
+
+        state_dir = self.tmp_path / "design_state"
+        code, out, _ = self.run_cli([
+            "init", "--target", str(repo), "--base", "main",
+            "--mode", "pr", "--level", "L1", "--state-dir", str(state_dir), "--json",
+        ])
+        self.assertEqual(0, code, out)
+        # Complete Phase 1
+        _, out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
+        p1 = json.loads(out)["ready_lanes"][0]
+        self.assertEqual(0, self.submit_json(state_dir, "engineering_baseline", {
+            "prompt_token": p1["prompt_token"],
+            "status": "PASS",
+            "summary": "baseline ok",
+            "checks": pass_checks(p1["active_rule_ids"], "ok"),
+            "evidence": ["pytest"],
+        })[0])
+
+        # Phase 2 prompts
+        _, out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
+        p2_map = {x["lane_id"]: x for x in json.loads(out)["ready_lanes"]}
+        ui_prompt = Path(p2_map["ui_ux_experience"]["prompt_path"]).read_text(encoding="utf-8")
+        biz_prompt = Path(p2_map["business_acceptance"]["prompt_path"]).read_text(encoding="utf-8")
+        blind_prompt = Path(p2_map["ui_ux_experience"]["blind_prompt_path"]).read_text(encoding="utf-8")
+
+        # Design principles auto-injected into ui_ux_experience & business_acceptance, but NEVER into blind prompt!
+        self.assertIn("Use 8px spacing scale and avoid nested border cards.", ui_prompt)
+        self.assertIn("Primary decision workbench always leads over module tabs.", ui_prompt)
+        self.assertIn("Primary decision workbench always leads over module tabs.", biz_prompt)
+        self.assertNotIn("Use 8px spacing scale", blind_prompt)
+        self.assertNotIn("DESIGN.md", blind_prompt)
+
+        # Submitting ui_ux_experience with company_cases_loaded=False is REJECTED when design docs were auto-loaded!
+        base_ui_payload = {
+            "prompt_token": p2_map["ui_ux_experience"]["prompt_token"],
+            "status": "PASS",
+            "summary": "ui checked against design principles",
+            "checks": pass_checks(p2_map["ui_ux_experience"]["active_rule_ids"], "verified"),
+            "evidence": ["live check"],
+            "commands_run": ["bombadil browser test ..."],
+            "meta": {
+                "applicability": "applicable",
+                "execution_state": "completed_no_violation",
+                "command": "bombadil ...",
+                "budget": "1m",
+                "material_type": "runnable",
+                "unfamiliar_language_check": "PASS",
+                "company_cases_loaded": False,
+                "ux_coverage": full_ux_coverage(self.runner),
+                "journey_walkthrough": sample_journey_walkthrough(self.runner),
+            },
+        }
+        code, res = self.submit_json(state_dir, "ui_ux_experience", base_ui_payload)
+        self.assertEqual(2, code)
+        self.assertTrue(any("company_cases_loaded=true" in e for e in res["errors"]))
+
+        # Setting company_cases_loaded=True succeeds and renders loaded benchmark pills in report.html!
+        base_ui_payload["meta"]["company_cases_loaded"] = True
+        self.assertEqual(0, self.submit_json(state_dir, "ui_ux_experience", base_ui_payload)[0])
+
+        html_out = self.tmp_path / "design_report.html"
+        code, out, _ = self.run_cli(["render", "--run", str(state_dir), "--out", str(html_out), "--json"])
+        self.assertEqual(0, code, out)
+        html_text = html_out.read_text(encoding="utf-8")
+        self.assertIn("已载入 UI 设计理念 / 审美基准", html_text)
+        self.assertIn("praxis-taste.md", html_text)
+        self.assertIn("DESIGN.md", html_text)
 
 
 if __name__ == "__main__":

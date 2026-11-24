@@ -2,7 +2,7 @@
 
 用工程思维路由创造型任务：先判断需求、架构、执行、验证、发布和沉淀路径，再让 agent 动手。
 
-- 当前版本：`0.17.0`
+- 当前版本：`0.18.0`
 - Package ID：`engineering-everything`
 - License：`UNLICENSED`
 
@@ -67,9 +67,9 @@ flowchart LR
 
 ## 评审工具
 
-- **脚本驱动聚类维度评审与 HTML 报告**（`scripts/review_runner.py` + `scripts/review_report_html.py` + `data/review_pipeline.json` + `references/review-rules.md`）：默认基线聚类为 **6 个正交 Review 维度、48 条稳定编号原子规则（`RV-BASE-01`..`RV-REL-03`，含 10 条逐项坏味道 `RV-SMELL-01`..`10`；UI 维度另接 70 条 `UX-*`）**，支持通过 `$EE_PRIVATE_ASSETS`、项目 `.evolution/` 与 CLI `--overlay` 动态叠加或裁剪阶段/维度/规则（`schemas/review-overlay.schema.json`），全程自动落盘过程日志（`events.jsonl` / `progress.log`）并默认产出按维度讲清优化点的可视化 **`report.html`**（+ `report.md`），缺任一必检规则即拒收。协议见 `references/review-pipeline.md`。
+- **脚本驱动聚类维度评审与 HTML 报告**（`scripts/review_runner.py` + `scripts/review_report_html.py` + `data/review_pipeline.json` + `references/review-rules.md` + `references/user-journey.md`）：默认基线聚类为 **6 个正交 Review 维度、50 条稳定编号原子规则（`RV-BASE-01`..`RV-REL-03`，含 L4/L5 产品认知与用户旅程规则 `RV-BIZ-05` / `RV-UI-05` 及 10 条逐项坏味道 `RV-SMELL-01..10`；UI 维度另强制 14 组 70 条 `UX-*` 结构化覆盖）**，支持通过 `$EE_PRIVATE_ASSETS`、项目 `.evolution/` 与 CLI `--overlay` 动态叠加或裁剪阶段/维度/规则（`schemas/review-overlay.schema.json`），命中旅程变更时自动生成物理无源码盲测 Prompt（`ui_ux_experience.blind.md`），全程自动落盘过程日志（`events.jsonl` / `progress.log`）并默认产出含预期 vs 实际旅程对比的可视化 **`report.html`**（+ `report.md`），缺任一必检规则即拒收。协议见 `references/review-pipeline.md`。
 - **代码评审**（`engineering-review-release`）：问题先行，行为正确性与回归风险优先，再查坏味道与可维护性（联动 `references/refactoring-rules.md`）、测试缺口与密钥风险。React 项目在 `code_quality` 维度内自动激活开源 [React Doctor](https://github.com/millionco/react-doctor) 只扫改动范围，默认不上传遥测、不做第三方供应链扫描；工具结果当线索重定级。用法见 `references/react-doctor.md`。
-- **界面评判**（`engineering-ui-ux-audit`）：按 70 条编号规则逐条判断 通过 / 不通过 / 不适用 / 未验证，含陌生语言自解释检查（`UX-VIS-09`）与 Bombadil 前置状态探索；不打审美分，截图证明不了的一律标未验证。团队交付时作为 Phase 2 `ui_ux_experience` 维度交回评审汇总。
+- **界面评判**（`engineering-ui-ux-audit`）：按 14 组 70 条编号规则逐条判断 通过 / 不通过 / 不适用 / 未验证，含陌生语言自解释检查（`UX-VIS-09`）、无源码盲测用户旅程走查（`RV-UI-05`）与 Bombadil 前置状态探索；支持零配置自动加载 `DESIGN.md` / `.evolution/design-principles/*.md` / `$EE_PRIVATE_ASSETS/design-principles/*.md` 优秀 UI 设计理念（另附 `data/review_overlays/ui-design-philosophy.example.json` 规则化预设模板）；不打审美分，截图证明不了的一律标未验证。团队交付时作为 Phase 2 `ui_ux_experience` 维度交回评审汇总。
 
 ## Delivery Gates（开发 SkillOS）
 
@@ -256,10 +256,10 @@ python3 -m unittest discover -s tests
 
 ## Status
 
-- 当前版本：`0.17.0`
+- 当前版本：`0.18.0`
 - GitHub repo：`HaodiFan/engineering-everything`
 - Runtime layout：plugin-first, `skills/*/SKILL.md`
-- Latest release：`v0.17.0`（脚本驱动 6 维度评审链路 + HTML 可视化优化报告 + Bombadil 显式接入 + 陌生语言自解释 `UX-VIS-09`）
+- Latest release：`v0.18.0`（产品认知与用户旅程审查 + 无源码盲测 + 14 组 70 条 UX 机检 + UI 设计理念自动注入与预设模板）
 - License：`UNLICENSED`
 
 ## Uninstall

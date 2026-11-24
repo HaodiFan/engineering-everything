@@ -2,7 +2,7 @@
 name: engineering-ui-ux-audit
 description: Use when judging, reviewing or accepting a UI/UX, or finding what is wrong with a page, flow, prototype or screenshot — rule-based findings with evidence, severity, fix and re-check conditions; review only unless the user asks for changes.
 metadata:
-  version: 0.17.0
+  version: 0.18.0
 ---
 
 # Engineering UI/UX Audit / 界面评判
@@ -17,7 +17,7 @@ metadata:
 - 团队交付到了“交付前确认做对了”，且改动涉及界面：`engineering-review-release` 的脚本编排（`scripts/review_runner.py`）会在 Phase 2 把 `ui_ux_experience` 维度委托给本 Skill（在同一维度内先执行/核对 `RV-BOMB-01..03` Bombadil 状态探索，再执行 `RV-UI-01..04` 与 70 条 `UX-*`）。
 - 改版前要先摸清现状问题。
 
-> **脚本编排协同**：作为 `engineering-review-release` 的 `ui_ux_experience` 维度被调用时，按脚本生成的 Prompt 顺序执行（先 `RV-BOMB-01..03` 状态探索，再 `RV-UI-01..04` 走查与陌生语言检查），完成后通过 `review_runner.py submit --lane ui_ux_experience` 提交结构化结果（含 Bombadil `applicability`/`execution_state`、`material_type`、`unfamiliar_language_check` 与 `unverified_items`）。独立调用且环境支持脚本时，也可用 `review_runner.py init --mode audit --material <screenshot|prototype|runnable>` 锁定范围、进度、证据门禁并产出可视化 `report.html`（详见 `references/review-pipeline.md`）。
+> **脚本编排协同**：作为 `engineering-review-release` 的 `ui_ux_experience` 维度被调用时，若命中旅程变更（`RV-UI-05`），先用脚本生成的物理隔离无源码盲测 Prompt（`ui_ux_experience.blind.md`）完成 Blind User Walkthrough（记录 7 项观察点），再顺序执行 `RV-BOMB-01..03` 状态探索与 `RV-UI-01..04` 走查和陌生语言检查，最后通过 `review_runner.py submit --lane ui_ux_experience` 提交结构化结果（含 `ux_coverage` 14 组 70 条统计、`journey_walkthrough`、Bombadil 状态、`material_type`、`unfamiliar_language_check` 与 `unverified_items`）。独立调用且环境支持脚本时，也可用 `review_runner.py init --mode audit --material <screenshot|prototype|runnable> [--journey]` 锁定范围、进度、证据门禁并产出可视化 `report.html`（详见 `references/review-pipeline.md`）。
 
 ## 执行步骤
 
@@ -111,4 +111,5 @@ metadata:
 - `references/ui-ux-playbook.md`：写正式报告、需要输出模板时。
 - `references/ui-ux-source-map.md`：被问到规则来源和核验边界时。
 - `references/react-doctor.md`：被评判的是 React 项目，想补代码层面的 UI 证据时。
+- `references/user-journey.md`：涉及工作台、导航、多步骤/跨角色或异步流程，要做无引导用户走查（Blind Walkthrough）和 8 大产品反模式核验时就读。
 - `references/review-pipeline.md`：接入 `scripts/review_runner.py` 编排或以 `ui_ux_experience` 维度提交结果、生成 HTML 报告时。
