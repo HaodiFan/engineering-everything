@@ -130,6 +130,6 @@
 以下作为默认工程策略执行：
 
 - **不自动逐 slice commit**：每个 slice 要验证，但只在用户要求 commit/PR、项目规范要求，或当前任务本身是提交/发 PR 时提交。避免 agent 制造过多低质量 commit。
-- **不默认 fan-out 多 agent review**：高风险 PR 必须跑对应 review roles，但多 agent 并行只在用户明确要求、宿主明确授权、或 release/ship gate 写明需要时运行。
+- **不默认无约束 fan-out 多 agent，但鼓励脚本驱动的只读并行 Review**：平时开发不默认乱开多 agent；进入开发后 Review 时，通过 `scripts/review_runner.py` 编排的同一 Phase 内**只读审查 Lane**允许且鼓励并发派给独立 subagent（每条 Lane 仅原子提交各自产物、不改业务代码，既保证独立评审又零写集冲突）。
 - **change size 是启发式 + 大 PR 硬门禁**：500 行以内按 review 启发式处理；500-1000 行默认拆分，不拆必须解释；超过 1000 行必须拆分，除非 owner 明确批准机械迁移、大文件删除或生成快照。
 - **不强制每阶段人工确认**：需求不清、高风险、触动架构边界、状态机、权限、存储、公共 API、外部平台规则时必须确认；小修、文档、单 PR follow-up、明确验收标准的任务可直接推进。

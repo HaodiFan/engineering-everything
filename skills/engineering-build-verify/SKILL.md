@@ -2,7 +2,7 @@
 name: engineering-build-verify
 description: Use when implementing, fixing bugs, migrating code, wiring APIs, running validation commands, or closing a build/test loop with minimal scoped changes.
 metadata:
-  version: 0.16.0
+  version: 0.17.0
 ---
 
 # Engineering Build Verify / 构建验证
@@ -22,7 +22,7 @@ metadata:
 3. 只改直接服务目标的文件；不处理无关坏味道。
 4. 改完立即跑最接近风险面的验证。
 5. 收尾说明变更文件、已运行验证、未运行检查及原因、剩余风险。
-6. 团队交付时：对照需求卡里“做成的样子”逐条留证据（对应这次要交付的版本），方便验收人复核；不要用假数据或截图冒充走通了。
+6. 团队交付或开发后进入评审时：对照需求卡里“做成的样子”逐条留证据（对应这次要交付的版本），不要用假数据或截图冒充走通了；随后交给 `engineering-review-release` 启动 `scripts/review_runner.py init` 走独立评审与门禁（实现用的 Agent 不当验收人）。
 
 ## 输出模板
 
@@ -50,3 +50,4 @@ metadata:
 - `references/delivery-gates.md`：团队交付、需要留交付证据时。
 - `references/verification-methods.md`：常规测试不够、要挑更合适的验证方法时。
 - `references/react-doctor.md`：实现或修复的是 React 代码，收尾前想扫一遍新引入的问题时。
+- `references/review-pipeline.md`：开发收尾准备交接给脚本驱动的后置 Review 链路时。

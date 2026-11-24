@@ -166,6 +166,8 @@ entries:
       - engineering-product-definition
   - source: verification-methods.md
     mode: exact-copy
+    requires:
+      - bombadil.md
     targets:
       - engineering-architecture-design
       - engineering-build-verify
@@ -193,6 +195,8 @@ entries:
       - engineering-ui-ux-audit
   - source: ui-ux-verification.md
     mode: exact-copy
+    requires:
+      - bombadil.md
     targets:
       - engineering-ui-ux-audit
   - source: ui-ux-visual-system.md
@@ -200,6 +204,29 @@ entries:
     targets:
       - engineering-ui-ux-audit
   - source: react-doctor.md
+    mode: exact-copy
+    targets:
+      - engineering-build-verify
+      - engineering-refactoring
+      - engineering-review-release
+      - engineering-ui-ux-audit
+  - source: bombadil.md
+    mode: exact-copy
+    targets:
+      - engineering-architecture-design
+      - engineering-build-verify
+      - engineering-execution-planning
+      - engineering-review-release
+      - engineering-ui-ux-audit
+  - source: review-pipeline.md
+    mode: exact-copy
+    requires:
+      - review-rules.md
+    targets:
+      - engineering-build-verify
+      - engineering-review-release
+      - engineering-ui-ux-audit
+  - source: review-rules.md
     mode: exact-copy
     targets:
       - engineering-build-verify

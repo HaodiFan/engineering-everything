@@ -6,7 +6,19 @@ Wrapper harness migrations are recorded under `.evozeus-wrapper/docs/migrations/
 
 ## [Unreleased]
 
-- Release `v0.16.0`: moved the entries below under the version header and added `release-notes-v0.16.0.md`.
+- Release `v0.17.0`: moved the entries below under the version header and added `release-notes-v0.17.0.md`.
+
+## [v0.17.0] - 2026-11-24
+
+### Skill changes
+
+- Script-driven clustered post-dev review pipeline (`0.17.0`): added `scripts/review_runner.py`, `data/review_pipeline.json`, `references/review-rules.md`, `references/review-pipeline.md`, and `schemas/review-overlay.schema.json`. Organizes post-development review into 3 execution phases (`1 -> 4 concurrent -> 1`) and 6 MECE business-readable dimensions (`engineering_baseline`, `business_acceptance`, `code_quality`, `security_architecture`, `ui_ux_experience`, `release_readiness`) covering 48 itemized atomic rules (`RV-BASE-01`..`RV-REL-03`, including 10 itemized code smells `RV-SMELL-01..10`) plus 70 `UX-*` rules.
+- Dynamic 4-layer overlay composition & live process observability: supports composing custom phases, dimensions, and rules from `$EE_PRIVATE_ASSETS`, project `.evolution/`, and CLI `--overlay` while protecting hard gates (`engineering_baseline`, `security_architecture`) from silent waiver; persists concurrent-safe append-only process logs (`events.jsonl` / `progress.log`) and prints live progress boards across `init`, `next`, `start`, `submit`, `recheck`, and `finalize`.
+- Interactive HTML review report (`scripts/review_report_html.py`): `finalize` now automatically generates a zero-dependency, theme-adaptive `report.html` (alongside `report.md` and `evidence-package.json` checked via `gate_check.py`) that clearly shows per-dimension optimization actions (severity, rule ID, location, impact, fix, re-check), interactive filters, gaps/unverified items, collapsible rule audit tables, and execution timeline; `render` subcommand generates live HTML snapshots mid-review.
+- Added owner-requested `UX-VIS-09` (feedback #32): unfamiliar-language review of UI self-explanation, concrete text-replacement and task-observation steps, evidence boundaries, and a behavior scenario. Current UI/UX rule catalog is 70 rules; existing IDs remain stable.
+- Made Bombadil selection and execution explicit in review and UI audit (feedback #31): concrete state-flow triggers, shared bounded-exploration runbook (`references/bombadil.md`), version/command/property/trace evidence, honest unavailable (`BLOCKED`, never `N/A`) handling, and release-blocking vs review-completion distinction.
+- Added behavior eval scenarios (`review-script-driven-pipeline`, `bombadil-runnable-ui-review`, `bombadil-screenshot-not-applicable`, `bombadil-tool-unavailable`, `ui-self-explanation-unfamiliar-language`) and 53 passing unit tests including `tests/test_review_runner.py`.
+- Release `v0.17.0`: moved the entries above under the version header and added `release-notes-v0.17.0.md`.
 
 ## [v0.16.0] - 2026-11-16
 

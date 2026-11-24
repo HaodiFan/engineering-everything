@@ -2,7 +2,7 @@
 name: engineering-ui-ux-audit
 description: Use when judging, reviewing or accepting a UI/UX, or finding what is wrong with a page, flow, prototype or screenshot — rule-based findings with evidence, severity, fix and re-check conditions; review only unless the user asks for changes.
 metadata:
-  version: 0.16.0
+  version: 0.17.0
 ---
 
 # Engineering UI/UX Audit / 界面评判
@@ -14,22 +14,26 @@ metadata:
 ## 何时使用
 
 - 用户要求评判、审查、验收 UI/UX，或问“这个页面哪里不好”。
-- 团队交付到了“交付前确认做对了”，且改动涉及界面：`engineering-review-release` 会把“用起来顺吗 / 看起来对吗”交给本 Skill。
+- 团队交付到了“交付前确认做对了”，且改动涉及界面：`engineering-review-release` 的脚本编排（`scripts/review_runner.py`）会在 Phase 2 把 `ui_ux_experience` 维度委托给本 Skill（在同一维度内先执行/核对 `RV-BOMB-01..03` Bombadil 状态探索，再执行 `RV-UI-01..04` 与 70 条 `UX-*`）。
 - 改版前要先摸清现状问题。
+
+> **脚本编排协同**：作为 `engineering-review-release` 的 `ui_ux_experience` 维度被调用时，按脚本生成的 Prompt 顺序执行（先 `RV-BOMB-01..03` 状态探索，再 `RV-UI-01..04` 走查与陌生语言检查），完成后通过 `review_runner.py submit --lane ui_ux_experience` 提交结构化结果（含 Bombadil `applicability`/`execution_state`、`material_type`、`unfamiliar_language_check` 与 `unverified_items`）。独立调用且环境支持脚本时，也可用 `review_runner.py init --mode audit --material <screenshot|prototype|runnable>` 锁定范围、进度、证据门禁并产出可视化 `report.html`（详见 `references/review-pipeline.md`）。
 
 ## 执行步骤
 
 1. **定范围**：记录页面或流程、用户角色、设备视口、语言、材料类型（截图 / 原型 / 可运行产品）和主要任务。任务用动词写，并写明成功的结果。缺信息可以列假设，不编造访谈或使用数据。
-2. **走一遍**：在授权范围内，有可运行的产品或原型就走主路径，覆盖相关的空数据、出错和窄屏状态；只有截图时只判断能观察到的事实。不得为了测试真的付款、发送、删除或改权限。
-3. **逐条判断**：先读 `references/ui-ux-rules.md`，再判断每条规则是否适用。每条记录为 通过 / 不通过 / 不适用 / 未验证，并保留规则 ID。没有证据不算通过；只有与本次无关的规则才是不适用。
-4. **写发现**：每个不通过项写清楚以下几点；相关问题可以合并，但要保留全部规则 ID，避免重复计数：
+2. **判断并执行状态探索**：可运行产品或原型涉及异步加载交错、重复提交、重试恢复、角色/权限切换或多步状态流转时，走查前读取 `references/bombadil.md`，完成隔离环境、属性和动作准备后实际运行有界探索。已有本次版本的有效探索证据可复用。仅截图、静态内容或无相关交互时记录不适用及理由；无法运行时列为未完成，记录尝试、原因、替代检查与补证办法。原型探索只证明原型行为，不证明真实后端。普通主路径脚本不能冒充属性探索。
+3. **检查 UI 能否自己表达用途**：按 `references/ui-ux-verification.md` 的陌生语言检查，将可见文字替换为评审者无法理解的等长文字，保留布局、控件与反馈；先展示陌生版本，仅给任务目标，检查能否发现主导航、辨认主操作、理解操作方向与结果。基础流程无法继续时，按 `UX-VIS-09` 报告 UI 自解释不足；不能只凭原文页面想象测试结果。仅截图时只判断视觉可辨识性，未操作的部分保持未验证。
+4. **走一遍**：在授权范围内，有可运行的产品或原型就走主路径，覆盖相关的空数据、出错和窄屏状态；只有截图时只判断能观察到的事实。不得为了测试真的付款、发送、删除或改权限。
+5. **逐条判断**：先读 `references/ui-ux-rules.md`，再判断每条规则是否适用。每条记录为 通过 / 不通过 / 不适用 / 未验证，并保留规则 ID。没有证据不算通过；只有与本次无关的规则才是不适用。
+6. **写发现**：每个不通过项写清楚以下几点；相关问题可以合并，但要保留全部规则 ID，避免重复计数：
    - 具体的页面、区域或控件；
    - 可复现的现象和证据；
    - 对任务的影响；
    - 严重度；
    - 最小修复建议和验收条件。
-5. **排序**：按阻断、严重、一般、建议排序。不编造综合分、审美分或转化提升。严重度按实际影响、风险、范围和恢复成本判断，不要把所有规范偏差机械地升级为严重。
-6. **未验证项单独列出**：写明最小的补证办法。修复后用同样的规则和任务条件复验；没有实测，不得写“已解决”。
+7. **排序**：按阻断、严重、一般、建议排序。不编造综合分、审美分或转化提升。严重度按实际影响、风险、范围和恢复成本判断，不要把所有规范偏差机械地升级为严重。
+8. **未验证项单独列出**：写明最小的补证办法。修复后用同样的规则和任务条件复验；没有实测，不得写“已解决”。
 
 ## 证据边界
 
@@ -58,7 +62,7 @@ metadata:
 | 审计纪律 | 5 |
 | 任务流程 | 3 |
 | 导航 | 5 |
-| 视觉布局 | 8 |
+| 视觉布局 | 9 |
 | 排版文案 | 6 |
 | 颜色 | 5 |
 | 表单组件 | 8 |
@@ -70,7 +74,7 @@ metadata:
 | 无障碍 | 6 |
 | 研究检查 | 3 |
 
-共 69 条，全部以 `references/ui-ux-rules.md` 中的稳定 ID 为准。
+共 70 条，全部以 `references/ui-ux-rules.md` 中的稳定 ID 为准。
 
 ## 输出
 
@@ -82,7 +86,7 @@ metadata:
 - 最小修复建议及其权衡；
 - 复验条件：在什么输入、设备、角色下应该看到什么结果。
 
-最后附上规则覆盖记录和未验证项，不适用的要说明原因。研究检查没执行时只记为待验证，不能因此自动判界面不通过。
+最后附上规则覆盖记录、陌生语言检查结论与证据、Bombadil 适用性及运行证据、未验证项，不适用的要说明原因。研究检查没执行时只记为待验证，不能因此自动判界面不通过。
 
 团队交付时，本 Skill 的结论作为“用起来顺吗 / 看起来对吗”的证据，交回 `engineering-review-release` 汇总。
 
@@ -98,11 +102,13 @@ metadata:
 
 本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
-- `references/ui-ux-rules.md`：开始评判时就读，包含 69 条规则，每条有触发条件、边界、证据、严重度、修复和复验。
+- `references/ui-ux-rules.md`：开始评判时就读，包含 70 条规则，每条有触发条件、边界、证据、严重度、修复和复验。
 - `references/ui-ux-verification.md`：要测量、要判断证据够不够时。
+- `references/bombadil.md`：可运行界面涉及异步、重复操作、恢复、权限或状态流转时，走查前就读并执行。
 - `references/ui-ux-rules-short.md`：需要快速查规则 ID 时。
 - `references/ui-ux-visual-system.md`：要解释视觉层级、排版、颜色机制时。
 - `references/ui-ux-user-flows.md`：要解释任务流程、表单、状态和无障碍机制时。
 - `references/ui-ux-playbook.md`：写正式报告、需要输出模板时。
 - `references/ui-ux-source-map.md`：被问到规则来源和核验边界时。
 - `references/react-doctor.md`：被评判的是 React 项目，想补代码层面的 UI 证据时。
+- `references/review-pipeline.md`：接入 `scripts/review_runner.py` 编排或以 `ui_ux_experience` 维度提交结果、生成 HTML 报告时。

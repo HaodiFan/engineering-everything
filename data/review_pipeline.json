@@ -1,0 +1,584 @@
+{
+  "schema_version": "3",
+  "description": "Clustered post-development review pipeline: 3 execution phases, 6 MECE review dimensions (modules), and 48 atomic numbered RV-* rules organized by sub-group. Composable with private/project/CLI overlays.",
+  "phases": [
+    {
+      "id": "preflight_baseline",
+      "order": 1,
+      "title": "Phase 1: 工程底线与基线门禁",
+      "goal": "先锁定受测版本与工作区卫生，跑通构建、Lint 与后端优先测试，确认具备深度审查前提。",
+      "allow_parallel": true
+    },
+    {
+      "id": "dimension_reviews",
+      "order": 2,
+      "title": "Phase 2: 四大核心维度并发审查",
+      "goal": "按业务闭环、代码质量、安全与架构、界面与体验四大正交维度并发逐条审查，逐项明确优化点。",
+      "allow_parallel": true
+    },
+    {
+      "id": "release_gate",
+      "order": 3,
+      "title": "Phase 3: 上线准备与确定性总决",
+      "goal": "确认业务侧与技术侧上线准备、监控与回滚方案，随后执行 finalize 生成 HTML 可视化报告与机检裁决。",
+      "allow_parallel": false
+    }
+  ],
+  "lanes": [
+    {
+      "id": "engineering_baseline",
+      "phase": "preflight_baseline",
+      "title": "维度 1：工程底线与验证基线（G0）",
+      "dimension_question": "代码干不干净？能构建、自动化测试跑过没？",
+      "owner_skill": "engineering-review-release",
+      "gate_steps": ["G0"],
+      "review_roles": ["qa"],
+      "depends_on": [],
+      "can_parallel": true,
+      "allow_na": false,
+      "never_waived": true,
+      "requires_code_change": true,
+      "required_in_modes": ["pr", "delivery", "release"],
+      "exclude_in_modes": ["audit"],
+      "trigger_signals": ["has_code_change"],
+      "recheck_policy": "always",
+      "na_reason_default": "纯界面截图/原型审计，无代码变更。",
+      "reference_slices": [
+        {"file": "checklists.md", "sections": ["通用验证"]},
+        {"file": "agent-operating-standards.md", "sections": ["4. Source-Driven Gate", "5. Change Size Rules"]}
+      ],
+      "anti_rationalizations": [
+        "不得把“CI 绿了”或“开发说测过了”当作本次 commit 的实证。",
+        "命令不可用或失败必须标 BLOCKED/FAIL，写明尝试命令、原因与补证办法。",
+        "工程底线（G0）不可标 N/A，也不可被配置禁用或豁免。"
+      ],
+      "rules": [
+        {
+          "id": "RV-BASE-01",
+          "group": "工程底线",
+          "title": "Diff 与工作区卫生",
+          "check": "运行 git diff --check；核查无冲突标记、无关格式化噪音、构建/runtime 产物入仓或未经授权修改的用户脏改动。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-BASE-02",
+          "group": "工程底线",
+          "title": "变更规模与单一主题（Change Size）",
+          "check": "核对 diff 行数档位（300-500 解释凝聚性；500-1000 默认拆分或写明理由；>1000 须拆分除非批准的机械迁移），未混入无关重构/格式化/依赖升级。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-BASE-03",
+          "group": "工程底线",
+          "title": "构建、类型检查与 Lint",
+          "check": "运行受影响范围的 build / typecheck / lint，记录真实命令、退出码与关键输出。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-BASE-04",
+          "group": "工程底线",
+          "title": "后端优先自动化测试",
+          "check": "按后端/API/service/unit/integration/contract/migration 优先顺序运行受影响测试集，记录通过/失败/跳过数；无自动化时记为缺口与人工验收路径。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-BASE-05",
+          "group": "工程底线",
+          "title": "新依赖与外部技术事实溯源（Source-Driven）",
+          "check": "新增/升级库、外部 API、框架或平台规则时，确认依据来自项目锁定版本、官方文档或 ADR（未涉及可标 N/A 并说明）。",
+          "allow_na": true
+        }
+      ]
+    },
+    {
+      "id": "business_acceptance",
+      "phase": "dimension_reviews",
+      "title": "维度 2：业务闭环与功能验收（G4 + G1）",
+      "dimension_question": "业务问题解决了吗？每条验收标准都有一手实测证据吗？",
+      "owner_skill": "engineering-review-release",
+      "gate_steps": ["G4", "G1"],
+      "review_roles": ["product", "qa"],
+      "depends_on": ["engineering_baseline"],
+      "can_parallel": true,
+      "allow_na": true,
+      "never_waived": false,
+      "recheck_policy": "on_any_fix",
+      "required_in_modes": ["pr", "delivery", "release"],
+      "exclude_in_modes": ["audit"],
+      "trigger_signals": ["has_code_change", "is_team_delivery"],
+      "na_reason_default": "纯界面截图/原型审计模式，无业务功能代码交付。",
+      "reference_slices": [
+        {"file": "delivery-gates.md", "sections": ["0. 先问业务，再谈技术", "4. 交付前：确认做对了（Quality）"]},
+        {"file": "verification-methods.md", "sections": ["业务验证（G4 解决了业务问题吗）——每次都要", "功能对吗（G1）"]},
+        {"file": "execution-pipeline.md", "sections": ["5. 测试默认顺序与 Browser QA 触发边界"]}
+      ],
+      "anti_rationalizations": [
+        "开发用的 Agent 不能当独立验收人；不得直接采信“开发说测过了”。",
+        "无对应版本证据的验收项一律视为未验证/BLOCKED，不能算通过。"
+      ],
+      "rules": [
+        {
+          "id": "RV-BIZ-01",
+          "group": "业务与功能验收",
+          "title": "业务问题解决度（G4）",
+          "check": "对照需求卡/spec 的“帮谁、什么场景、做成了是什么样子”，确认核心业务目标已达成、范围与非目标未漂移。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-BIZ-02",
+          "group": "业务与功能验收",
+          "title": "验收标准逐条对应一手证据（G1）",
+          "check": "每条 AC 映射到本次 commit 的可执行测试、数据核对、fixture/replay 或真实演示记录，不用假数据或截图冒充走通。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-BIZ-03",
+          "group": "业务与功能验收",
+          "title": "异常态、负向路径与恢复能力",
+          "check": "核查空数据、非法输入、权限拒绝、外部超时/部分失败、重复请求幂等与失败恢复路径是否符合预期。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-BIZ-04",
+          "group": "业务与功能验收",
+          "title": "回归测试与业务数据对账",
+          "check": "Bug fix 是否补充回归测试；涉及金额/库存/统计/报表时是否做过脱敏样本前后对账（不涉及可标 N/A 并说明）。",
+          "allow_na": true
+        }
+      ]
+    },
+    {
+      "id": "code_quality",
+      "phase": "dimension_reviews",
+      "title": "维度 3：代码质量（正确性 + 坏味道 + React 体检）",
+      "dimension_question": "代码有没有行为 Bug、回归风险、10 类坏味道或 React 新增隐患？",
+      "owner_skill": "engineering-review-release",
+      "gate_steps": ["CR"],
+      "review_roles": ["code"],
+      "depends_on": ["engineering_baseline"],
+      "can_parallel": true,
+      "allow_na": false,
+      "never_waived": false,
+      "requires_code_change": true,
+      "validators": ["react_doctor"],
+      "recheck_policy": "on_any_fix",
+      "required_in_modes": ["pr", "delivery", "release"],
+      "exclude_in_modes": ["audit"],
+      "trigger_signals": ["has_code_change"],
+      "na_reason_default": "纯界面截图/原型审计，无代码 diff。",
+      "reference_slices": [
+        {"file": "code-review-standards.md", "sections": []},
+        {"file": "refactoring-rules.md", "sections": ["3. 坏味道到手法映射", "8. Agent 输出模板"]},
+        {"file": "react-doctor.md", "sections": ["怎么跑", "怎么解读结果"], "only_when_signal": "is_react"}
+      ],
+      "anti_rationalizations": [
+        "先拦行为 Bug 与回归，再查 10 类坏味道；命中坏味道必须写明位置、影响、重构手法、前置测试、是否阻塞。",
+        "React 项目必须仅扫 --scope changed --no-telemetry --no-supply-chain，存量技术债单列不阻断，skipped_files 必标 BLOCKED。",
+        "尊重既定产品约定，不因纯风格偏好阻塞合并。"
+      ],
+      "rules": [
+        {
+          "id": "RV-REACT-01",
+          "group": "React 增量体检",
+          "title": "增量范围与隐私合规扫描（React Doctor）",
+          "check": "仅扫本次改动（--scope changed --base <base>），默认带 --no-telemetry --no-supply-chain --json；未运行 install/ci install；失败或 skipped_files 标 BLOCKED。",
+          "trigger_signals": ["is_react"],
+          "na_reason_default": "非 React 项目或本次改动不涉及 React 代码。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-REACT-02",
+          "group": "React 增量体检",
+          "title": "React 新增问题定级与存量剥离",
+          "check": "将工具输出作线索按 EE 口径重定级（安全/状态错乱/无限渲染/丢数据→阻断），存量问题单列技术债不阻断，不刷分。",
+          "trigger_signals": ["is_react"],
+          "na_reason_default": "非 React 项目或本次改动不涉及 React 代码。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-BUG-01",
+          "group": "行为正确性与测试",
+          "title": "逻辑与边界条件",
+          "check": "排查空值/None/undefined、空集合、0/负数/极值、字符编码、时区/精度、分页排序边界与 off-by-one 缺陷。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-BUG-02",
+          "group": "行为正确性与测试",
+          "title": "状态机、并发与幂等竞态",
+          "check": "排查状态允许/禁止迁移、并发写竞争、重复点击/重复回调、锁与事务边界、部分成功后的补偿或回滚（无状态/并发逻辑可标 N/A 并说明）。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-BUG-03",
+          "group": "行为正确性与测试",
+          "title": "错误处理、资源释放与外部超时",
+          "check": "排查静默吞错、将未知/失败伪装成成功、文件/连接/子进程泄漏、外部 IO 缺少超时或无限重试。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-BUG-04",
+          "group": "行为正确性与测试",
+          "title": "前后端/模块契约与向后兼容",
+          "check": "排查 schema 字段缺失、旧数据兼容、枚举新增处理、公共函数/接口签名破坏性变更。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-BUG-05",
+          "group": "行为正确性与测试",
+          "title": "半成品隔离与入口门禁",
+          "check": "确认开发中半成品未直接暴露在生产主路径，具备 feature flag、配置开关或明确验收边界。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-TEST-01",
+          "group": "行为正确性与测试",
+          "title": "测试覆盖与断言强度（Test Gaps）",
+          "check": "识别弱断言（只验 status 200 不验关键状态/数据）、仅测主路径漏测失败态、mock 失真，并明确列出 Test Gaps。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-SMELL-01",
+          "group": "代码坏味道（10 项）",
+          "title": "过长函数（Long Function）",
+          "check": "单函数同时混做输入解析、业务判断、IO 与副作用 → 手法：Extract Function / Split Phase。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-SMELL-02",
+          "group": "代码坏味道（10 项）",
+          "title": "过大类 / 上帝服务（Large Class / God Service）",
+          "check": "单类/单模块同时承担协议适配、领域逻辑、存储、外部同步与后台任务 → 手法：Extract Class / Move Function。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-SMELL-03",
+          "group": "代码坏味道（10 项）",
+          "title": "重复代码与重复规则（Duplicated Code / Rules）",
+          "check": "同一限制、状态、角色、字段映射或业务规则在多处（含前后端）复制粘贴 → 手法：Extract Function / Shared Policy。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-SMELL-04",
+          "group": "代码坏味道（10 项）",
+          "title": "发散式变化 / 霰弹式修改（Divergent Change / Shotgun Surgery）",
+          "check": "单文件因多类不相关需求高频修改，或一个小行为改动需跨 router/service/schema/UI 多处同步 → 手法：Split Responsibility / Introduce Owning Layer。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-SMELL-05",
+          "group": "代码坏味道（10 项）",
+          "title": "基本类型偏执与魔法值（Primitive Obsession）",
+          "check": "用大量裸字符串/魔法数字表示状态、角色、action 或错误码，缺少 Enum / Value Object / Transition Table → 手法：Introduce Enum / Value Object。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-SMELL-06",
+          "group": "代码坏味道（10 项）",
+          "title": "过度耦合与越界依赖（Over-Coupling / Feature Envy / Inappropriate Intimacy）",
+          "check": "业务层直连外部 API/文件系统/线程细节，router 堆领域逻辑，或模块互相读内部细节 → 手法：Move Function / Hide Delegate。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-SMELL-07",
+          "group": "代码坏味道（10 项）",
+          "title": "条件分支爆炸（Conditional Complexity）",
+          "check": "多层嵌套 if/elif/switch 持续膨胀、分支难以穷举测试 → 手法：Strategy / Dispatch Table / State Machine。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-SMELL-08",
+          "group": "代码坏味道（10 项）",
+          "title": "临时字段、参数团与神秘命名（Temporary Field / Data Clumps / Naming）",
+          "check": "仅局部流程出现且无 schema 的隐式字段、总是一起传递的裸参数团、或隐藏意图的命名 → 手法：Introduce Parameter Object / Explicit State / Rename。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-SMELL-09",
+          "group": "代码坏味道（10 项）",
+          "title": "全局可变状态与无价值抽象（Global Mutable State / Middle Man / Speculative Generality）",
+          "check": "共享可变单例破坏测试与并发隔离，或仅转发/为假想未来预留的无用包装层 → 手法：Inject Dependency / Inline / Collapse Abstraction。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-SMELL-10",
+          "group": "代码坏味道（10 项）",
+          "title": "注释补丁味（Comment-as-Patch）",
+          "check": "用大段注释解释晦涩绕路代码，而非提炼成自解释的函数/概念 → 手法：Extract Concept / Rename（注释只留 why）。",
+          "allow_na": false
+        }
+      ]
+    },
+    {
+      "id": "security_architecture",
+      "phase": "dimension_reviews",
+      "title": "维度 4：安全合规与架构边界（Security / Arch / DX / AI）",
+      "dimension_question": "有没有密钥泄露、越权漏洞、红线冲突、迁移风险或 API/AI 链路隐患？",
+      "owner_skill": "engineering-review-release",
+      "gate_steps": ["G0", "D"],
+      "review_roles": ["security", "architecture", "dx"],
+      "depends_on": ["engineering_baseline"],
+      "can_parallel": true,
+      "allow_na": false,
+      "never_waived": true,
+      "requires_code_change": true,
+      "file_bucket": "security_arch_files",
+      "recheck_policy": "on_any_fix",
+      "required_in_modes": ["pr", "delivery", "release"],
+      "exclude_in_modes": ["audit"],
+      "trigger_signals": [
+        "has_code_change",
+        "has_security_surface",
+        "has_arch_or_data_change",
+        "has_dx_surface",
+        "has_ai_or_automation",
+        "high_level"
+      ],
+      "na_reason_default": "纯界面截图/原型审计，无代码与系统边界变更。",
+      "reference_slices": [
+        {"file": "code-review-standards.md", "sections": ["密钥与硬编码检查"]},
+        {"file": "checklists.md", "sections": ["Constitution 红线触发处理 Checklist"]},
+        {"file": "verification-methods.md", "sections": ["设计验证（D，写代码之前）——只有重要改动且逻辑复杂时"], "only_when_signal": "high_level"}
+      ],
+      "anti_rationalizations": [
+        "涉及安全、权限、客户数据或合规的问题不可按 L0 降级，也不可豁免。",
+        "触动 CONSTITUTION 红线必须立刻阻断并给 owner 提供规避/改红线/临时豁免三种决策路径。"
+      ],
+      "rules": [
+        {
+          "id": "RV-SEC-01",
+          "group": "安全与脱敏",
+          "title": "密钥、凭据与硬编码检查",
+          "check": "禁止真实 secret/token/密码/私钥入仓；.env.example 仅放空值或显式假值；开发 mock 默认关闭；区分配置化权限列表与禁止的生产硬编码凭据。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-SEC-02",
+          "group": "安全与脱敏",
+          "title": "鉴权、授权默认拒绝与租户隔离",
+          "check": "核查未登录/普通用户/管理员/跨租户/未知身份路径是否默认拒绝，不把前端隐藏控件当安全边界。",
+          "trigger_signals": ["has_security_surface", "high_level"],
+          "na_reason_default": "本次改动不涉及鉴权、权限或租户边界。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-SEC-03",
+          "group": "安全与脱敏",
+          "title": "输入校验、注入与签名防重放",
+          "check": "核查 SQL/命令/路径穿越/SSRF/XSS/反序列化边界及外部 webhook 签名与重放防护。",
+          "trigger_signals": ["has_security_surface", "has_dx_surface", "high_level"],
+          "na_reason_default": "本次改动不涉及外部输入解析、命令执行或 webhook 接口。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-SEC-04",
+          "group": "安全与脱敏",
+          "title": "日志、报错与 URL 敏感信息脱敏",
+          "check": "确认日志、异常响应、URL 与遥测不泄露 Authorization、cookie、token、signature、password、secret、PII 或完整敏感回调 payload。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-SEC-05",
+          "group": "安全与脱敏",
+          "title": "合规与自动化/平台 ToS 授权边界",
+          "check": "涉及支付、PII、第三方抓取/RPA/浏览器自动化时，核查授权边界、平台 ToS 风险、限流节流与失败态。",
+          "trigger_signals": ["has_security_surface", "has_ai_or_automation"],
+          "na_reason_default": "本次改动不涉及支付、PII 合规或外部平台自动化采集。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-ARCH-01",
+          "group": "架构与数据迁移",
+          "title": "真相源与分层归属（Owning Layer）",
+          "check": "确认核心领域职责有唯一 owning layer；router/controller 不承载核心领域逻辑；外部平台未声明前不作为产品真相源。",
+          "trigger_signals": ["has_arch_or_data_change", "high_level"],
+          "na_reason_default": "未触动架构边界或模块归属。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-ARCH-02",
+          "group": "架构与数据迁移",
+          "title": "CONSTITUTION 红线与 ADR/架构文档同步",
+          "check": "确认 CONSTITUTION.md 红线 0 触发（或已走正式豁免）；触动架构维度时已同步 ARCHITECTURE.md 与 docs/decisions/ADR-*。",
+          "trigger_signals": ["has_arch_or_data_change", "high_level"],
+          "na_reason_default": "未触动架构决策或治理红线。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-ARCH-03",
+          "group": "架构与数据迁移",
+          "title": "数据迁移与运行时存储边界",
+          "check": "核查空库升级、存量数据升级、downgrade 或前向修复预案；确认 runtime data 留在 repo 外。",
+          "trigger_signals": ["has_arch_or_data_change"],
+          "na_reason_default": "无 schema 或数据迁移变更。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-ARCH-04",
+          "group": "架构与数据迁移",
+          "title": "复杂设计验证复核（D）",
+          "check": "L2+ 且涉及并发、分布式协议、多步骤状态机或权限流转时，复核设计阶段 TLA+/P/状态表结论仍成立且反例已转回归测试。",
+          "trigger_signals": ["high_level"],
+          "na_reason_default": "非 L2+ 重要改动或无复杂并发/协议设计。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-DX-01",
+          "group": "公开契约与 AI 链路",
+          "title": "公开 API / CLI / SDK 与文档体验（DX）",
+          "check": "核查首次使用路径、报错信息可行动性、向后兼容性及 README/docs/示例与当前实现一致。",
+          "trigger_signals": ["has_dx_surface"],
+          "na_reason_default": "无公开 API/CLI/SDK 或集成文档变更。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-AI-01",
+          "group": "公开契约与 AI 链路",
+          "title": "AI / OCR / CV / RPA 生产链路检查",
+          "check": "核查 prompt 版本与回滚指针、结构化输出 schema 校验、调用日志（provider/model/token/latency/error）、超时降级与 eval/replay 证据。",
+          "trigger_signals": ["has_ai_or_automation"],
+          "na_reason_default": "不涉及 AI/LLM/OCR/CV/RPA 流水线。",
+          "allow_na": true
+        }
+      ]
+    },
+    {
+      "id": "ui_ux_experience",
+      "phase": "dimension_reviews",
+      "title": "维度 5：界面体验与交互稳定性（Bombadil + UI/UX 70 条）",
+      "dimension_question": "复杂交互稳不稳？界面顺不顺手？换陌生语言光凭 UI 能不能用？",
+      "owner_skill": "engineering-ui-ux-audit",
+      "gate_steps": ["G2", "G3"],
+      "review_roles": ["design", "qa"],
+      "depends_on": ["engineering_baseline"],
+      "can_parallel": true,
+      "allow_na": true,
+      "never_waived": false,
+      "validators": ["bombadil", "ui_ux_audit"],
+      "file_bucket": "ui_files",
+      "recheck_policy": "on_file_match",
+      "required_in_modes": ["audit"],
+      "exclude_in_modes": [],
+      "trigger_signals": ["has_ui_change"],
+      "na_reason_default": "本次变更不涉及用户界面或视觉交互。",
+      "reference_slices": [
+        {"file": "bombadil.md", "sections": []},
+        {"file": "ui-ux-verification.md", "sections": []},
+        {"file": "ui-ux-playbook.md", "sections": ["1. 评判报告结构"]}
+      ],
+      "anti_rationalizations": [
+        "先完成 Bombadil 适用性判定与有界探索（RV-BOMB-01..03），再做界面走查（RV-UI-01..04）；同一证据直接复用不重复跑。",
+        "Bombadil 工具缺失、断网、未隔离或超时必须标 BLOCKED，严禁标成 N/A。",
+        "仅有截图时严禁放行上线，不可证明项必须全部列入 unverified_items；不得凭原文脑补陌生语言检查结果。"
+      ],
+      "rules": [
+        {
+          "id": "RV-BOMB-01",
+          "group": "前置交互状态探索（Bombadil）",
+          "title": "适用性与隔离动作边界判定",
+          "check": "走查前明确判定：可运行 UI 且涉异步交错/重复提交/重试恢复/权限切换/多步状态流转→适用并固定版本/URL/角色/隔离数据与安全动作空间（同源≠隔离）；仅截图/静态才允许 N/A；工具或隔离受阻强制 BLOCKED。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-BOMB-02",
+          "group": "前置交互状态探索（Bombadil）",
+          "title": "业务属性规格与有界执行",
+          "check": "核验 CLI --version 与 browser test --help，从验收项提炼业务属性与可达动作，执行带预算（默认 1m）与输出路径的探索，保留真实命令、退出码与 trace。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-BOMB-03",
+          "group": "前置交互状态探索（Bombadil）",
+          "title": "违规复现与探索结论边界",
+          "check": "发现违规保留重放命令与前置状态；预算正常结束无违规按限定口径报告；中断或目标状态不可达标 BLOCKED 并列补证办法。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-UI-01",
+          "group": "界面自解释与 70 条体验规则",
+          "title": "复核前置状态探索证据",
+          "check": "直接继承本模块前 3 条 Bombadil 适用性判定与运行证据，不重复跑已完成探索。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-UI-02",
+          "group": "界面自解释与 70 条体验规则",
+          "title": "陌生语言 UI 自解释检查（UX-VIS-09）",
+          "check": "在隔离副本替换全部可见文字并保留版式后，按任务检查主导航、主操作与反馈辨识；未转换或仅截图如实标未验证边界。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-UI-03",
+          "group": "界面自解释与 70 条体验规则",
+          "title": "70 条界面规则逐条审验（UX-*）",
+          "check": "按 references/ui-ux-rules.md 14 组 70 条规则逐条判 通过/不通过/不适用/未验证，发现项标明 UX-* 规则 ID、位置、证据、最小修复与复验条件；不打审美分。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-UI-04",
+          "group": "界面自解释与 70 条体验规则",
+          "title": "材料证据边界与视觉对标（G3）",
+          "check": "截图材料须将键盘/路由/提交/权限/性能/读屏列为 unverified_items；G3 对标 .evolution/ 或 EE_PRIVATE_ASSETS 案例（未加载须声明），L2+ 由校准过的人拍板。",
+          "allow_na": false
+        }
+      ]
+    },
+    {
+      "id": "release_readiness",
+      "phase": "release_gate",
+      "title": "维度 6：上线准备与发布门禁（R）",
+      "dimension_question": "上线前业务与技术准备齐全吗？出事怎么监控、兜底和回滚？",
+      "owner_skill": "engineering-review-release",
+      "gate_steps": ["R"],
+      "review_roles": ["release"],
+      "depends_on": [
+        "engineering_baseline",
+        "business_acceptance",
+        "code_quality",
+        "security_architecture",
+        "ui_ux_experience"
+      ],
+      "can_parallel": false,
+      "allow_na": true,
+      "never_waived": false,
+      "file_bucket": "release_files",
+      "recheck_policy": "on_file_match",
+      "required_in_modes": ["delivery", "release"],
+      "exclude_in_modes": ["audit"],
+      "trigger_signals": ["has_release_scope", "is_team_delivery", "high_level"],
+      "na_reason_default": "普通本地/PR 评审，暂不涉及生产发布或上线准备。",
+      "reference_slices": [
+        {"file": "delivery-gates.md", "sections": ["5. 上线：业务和技术都要准备好"]},
+        {"file": "verification-methods.md", "sections": ["上线准备（R）"]},
+        {"file": "checklists.md", "sections": ["PR Readiness"]}
+      ],
+      "anti_rationalizations": [
+        "清单打勾不等于就绪；放量、迁移、监控与回滚必须有具体方案或演练证据。",
+        "有不可逆数据变更且无已验证回滚或前向修复预案时，直接阻断发布。"
+      ],
+      "rules": [
+        {
+          "id": "RV-REL-01",
+          "group": "上线与回滚准备",
+          "title": "业务侧上线就绪",
+          "check": "确认需提前知会的角色（客户/客服/销售/运营）、说明与培训、指标口径变化及故障时业务兜底方案。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-REL-02",
+          "group": "上线与回滚准备",
+          "title": "技术侧放量、监控与已验证回滚",
+          "check": "确认配置/环境变量、迁移顺序、分批放量或 feature flag、业务指标优先监控及已验证回滚步骤。",
+          "allow_na": false
+        },
+        {
+          "id": "RV-REL-03",
+          "group": "上线与回滚准备",
+          "title": "PR 与治理文档生命周期收口",
+          "check": "确认 PR body（Why/What/Linked Spec/Validation/Risks/Rollback）、changelog、design doc 从 active/ 迁至 done/ 并回填验证结果、active-context.md 更新。",
+          "allow_na": false
+        }
+      ]
+    }
+  ]
+}

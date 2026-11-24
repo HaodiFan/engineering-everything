@@ -117,14 +117,17 @@ routes:
     conflicts: ["build", "refactor"]
     fallback: build
     handoff_to: ["learn"]
-    eval_cases: ["review-findings-first", "quality-gate-fixed-flow", "react-review-uses-react-doctor"]
+    eval_cases: ["review-findings-first", "quality-gate-fixed-flow", "react-review-uses-react-doctor", "bombadil-runnable-ui-review", "bombadil-tool-unavailable", "review-script-driven-pipeline"]
     references:
+      - skills/engineering-review-release/references/review-rules.md
+      - skills/engineering-review-release/references/review-pipeline.md
       - skills/engineering-review-release/references/code-review-standards.md
       - skills/engineering-review-release/references/checklists.md
       - skills/engineering-review-release/references/execution-pipeline.md
       - skills/engineering-review-release/references/delivery-gates.md
       - skills/engineering-review-release/references/verification-methods.md
       - skills/engineering-review-release/references/react-doctor.md
+      - skills/engineering-review-release/references/bombadil.md
   - id: ui-ux-audit
     skill: engineering-ui-ux-audit
     priority: 75
@@ -138,10 +141,11 @@ routes:
     conflicts: ["review-release", "product"]
     fallback: review-release
     handoff_to: ["review-release", "build"]
-    eval_cases: ["ui-ux-audit-evidence-boundary"]
+    eval_cases: ["ui-ux-audit-evidence-boundary", "bombadil-screenshot-not-applicable", "ui-self-explanation-unfamiliar-language"]
     references:
       - skills/engineering-ui-ux-audit/references/ui-ux-rules.md
       - skills/engineering-ui-ux-audit/references/ui-ux-verification.md
+      - skills/engineering-ui-ux-audit/references/bombadil.md
       - skills/engineering-ui-ux-audit/references/ui-ux-playbook.md
   - id: automation
     skill: engineering-automation-playbooks

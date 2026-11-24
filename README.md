@@ -2,7 +2,7 @@
 
 用工程思维路由创造型任务：先判断需求、架构、执行、验证、发布和沉淀路径，再让 agent 动手。
 
-- 当前版本：`0.16.0`
+- 当前版本：`0.17.0`
 - Package ID：`engineering-everything`
 - License：`UNLICENSED`
 
@@ -67,8 +67,9 @@ flowchart LR
 
 ## 评审工具
 
-- **代码评审**（`engineering-review-release`）：问题先行，按严重度列出 文件:行号、影响和建议，用坏味道规则库找可维护性问题。React 项目会用开源的 [React Doctor](https://github.com/millionco/react-doctor) 只扫这次改动新引入的问题，默认不上传遥测、不把依赖清单发给第三方；工具结果当线索，按评审口径重新定级。用法见 `references/react-doctor.md`。
-- **界面评判**（`engineering-ui-ux-audit`）：按 69 条编号规则逐条判断 通过 / 不通过 / 不适用 / 未验证，每条发现带证据、严重度、最小修复和复验条件；不打审美分，截图证明不了的（键盘、返回、性能、读屏等）一律标未验证。团队交付时作为“用起来顺吗 / 看起来对吗”的证据交回评审汇总。
+- **脚本驱动聚类维度评审与 HTML 报告**（`scripts/review_runner.py` + `scripts/review_report_html.py` + `data/review_pipeline.json` + `references/review-rules.md`）：默认基线聚类为 **6 个正交 Review 维度、48 条稳定编号原子规则（`RV-BASE-01`..`RV-REL-03`，含 10 条逐项坏味道 `RV-SMELL-01`..`10`；UI 维度另接 70 条 `UX-*`）**，支持通过 `$EE_PRIVATE_ASSETS`、项目 `.evolution/` 与 CLI `--overlay` 动态叠加或裁剪阶段/维度/规则（`schemas/review-overlay.schema.json`），全程自动落盘过程日志（`events.jsonl` / `progress.log`）并默认产出按维度讲清优化点的可视化 **`report.html`**（+ `report.md`），缺任一必检规则即拒收。协议见 `references/review-pipeline.md`。
+- **代码评审**（`engineering-review-release`）：问题先行，行为正确性与回归风险优先，再查坏味道与可维护性（联动 `references/refactoring-rules.md`）、测试缺口与密钥风险。React 项目在 `code_quality` 维度内自动激活开源 [React Doctor](https://github.com/millionco/react-doctor) 只扫改动范围，默认不上传遥测、不做第三方供应链扫描；工具结果当线索重定级。用法见 `references/react-doctor.md`。
+- **界面评判**（`engineering-ui-ux-audit`）：按 70 条编号规则逐条判断 通过 / 不通过 / 不适用 / 未验证，含陌生语言自解释检查（`UX-VIS-09`）与 Bombadil 前置状态探索；不打审美分，截图证明不了的一律标未验证。团队交付时作为 Phase 2 `ui_ux_experience` 维度交回评审汇总。
 
 ## Delivery Gates（开发 SkillOS）
 
@@ -231,6 +232,8 @@ Key files:
 | `scripts/self_evolve.py` | 检查自进化 harness、GitHub/source contract 和安装副本。 |
 | `scripts/lesson.py` | 校验 lesson/pattern 结构。 |
 | `scripts/gate_check.py` | 机检 Evidence Package 是否可发布；`template` 子命令生成空包。 |
+| `scripts/review_runner.py` | 脚本驱动的开发后评审编排器：侦测范围、合并叠加配置、动态拼接并发维度 Prompt、记录过程日志、校验落盘、联动 `gate_check.py` 总决并生成 `report.html` 及 `recheck` 增量复审。 |
+| `scripts/review_report_html.py` | 零依赖 Review HTML 可视化报告渲染器：按 6 维度清晰呈现结论、待优化动作卡片、缺口、逐条 `RV-*` 规则明细与过程时间线。 |
 | `scripts/update_check.py` | 检查 EE 和 EvoZeus 在 GitHub 上是否有新版本；可装成会话启动 hook（只提示，不自动更新）。 |
 
 常用验证：
@@ -253,10 +256,10 @@ python3 -m unittest discover -s tests
 
 ## Status
 
-- 当前版本：`0.16.0`
+- 当前版本：`0.17.0`
 - GitHub repo：`HaodiFan/engineering-everything`
 - Runtime layout：plugin-first, `skills/*/SKILL.md`
-- Latest release：`v0.16.0`（UI/UX 界面评判 + React Doctor 接入代码评审）
+- Latest release：`v0.17.0`（脚本驱动 6 维度评审链路 + HTML 可视化优化报告 + Bombadil 显式接入 + 陌生语言自解释 `UX-VIS-09`）
 - License：`UNLICENSED`
 
 ## Uninstall

@@ -2,7 +2,7 @@
 name: engineering-skill-evolution
 description: Use when evolving a skill, capturing lessons, promoting patterns, changing routes, updating references, installing skills, validating skill packages, or publishing skill releases.
 metadata:
-  version: 0.16.0
+  version: 0.17.0
 ---
 
 # Engineering Skill Evolution / Skill 自进化

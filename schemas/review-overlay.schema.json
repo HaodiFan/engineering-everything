@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HaodiFan/engineering-everything/schemas/review-overlay.schema.json",
+  "title": "Engineering Everything Review Pipeline Overlay",
+  "description": "Dynamic overlay for composing custom review phases, modules (lanes), numbered rules, signal patterns, and disables on top of data/review_pipeline.json. Auto-discovered from $EE_PRIVATE_ASSETS or <target>/.evolution/, or passed via review_runner.py --overlay.",
+  "type": "object",
+  "required": ["schema_version", "name"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1" },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "signal_patterns": {
+      "type": "object",
+      "description": "Additional lowercase path substrings mapped to signal buckets (arch_data, security, dx, ai_automation, release, ui_interactive).",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "add_phases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "order", "title"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "order": { "type": "number" },
+          "title": { "type": "string" },
+          "goal": { "type": "string" },
+          "allow_parallel": { "type": "boolean" }
+        }
+      }
+    },
+    "add_lanes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "phase", "title", "rules"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "phase": { "type": "string", "minLength": 1 },
+          "title": { "type": "string" },
+          "owner_skill": { "type": "string" },
+          "gate_steps": { "type": "array", "items": { "type": "string" } },
+          "review_roles": { "type": "array", "items": { "type": "string" } },
+          "depends_on": { "type": "array", "items": { "type": "string" } },
+          "can_parallel": { "type": "boolean" },
+          "allow_na": { "type": "boolean" },
+          "never_waived": { "type": "boolean" },
+          "always_required": { "type": "boolean" },
+          "required_in_modes": { "type": "array", "items": { "type": "string" } },
+          "exclude_in_modes": { "type": "array", "items": { "type": "string" } },
+          "requires_code_change": { "type": "boolean" },
+          "trigger_signals": { "type": "array", "items": { "type": "string" } },
+          "trigger_path_patterns": { "type": "array", "items": { "type": "string" } },
+          "recheck_policy": { "type": "string", "enum": ["always", "on_any_fix", "on_file_match", "on_failure_only"] },
+          "na_reason_default": { "type": "string" },
+          "reference_files": { "type": "array", "items": { "type": "string" } },
+          "anti_rationalizations": { "type": "array", "items": { "type": "string" } },
+          "rules": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["id", "title", "check"],
+              "properties": {
+                "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9]{1,7}-[A-Z0-9]+-\\d{2,3}$" },
+                "title": { "type": "string" },
+                "check": { "type": "string" },
+                "allow_na": { "type": "boolean" },
+                "trigger_signals": { "type": "array", "items": { "type": "string" } },
+                "na_reason_default": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "extend_lanes": {
+      "type": "object",
+      "description": "Map of existing lane_id -> additions (add_rules, add_depends_on, add_reference_files, add_anti_rationalizations).",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "add_rules": { "type": "array", "items": { "type": "object" } },
+          "add_depends_on": { "type": "array", "items": { "type": "string" } },
+          "add_reference_files": { "type": "array", "items": { "type": "string" } },
+          "add_anti_rationalizations": { "type": "array", "items": { "type": "string" } },
+          "trigger_path_patterns": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "force_require_lanes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "disable_lanes": {
+      "type": "object",
+      "description": "Map of optional lane_id -> explicit reason. Hard gates (never_waived=true) cannot be disabled.",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "disable_rules": {
+      "type": "object",
+      "description": "Map of rule_id -> explicit reason. Hard rules on never_waived lanes cannot be disabled.",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    }
+  }
+}
