@@ -2,7 +2,7 @@
 name: engineering-product-definition
 description: Use when clarifying or reviewing a product idea, PRD, requirements, PSPS, user scenario, scope, non-goals, or success criteria, finding gaps and recommending decisions for user confirmation before architecture or implementation.
 metadata:
-  version: 0.18.0
+  version: 0.19.0
 ---
 
 # Engineering Product Definition / 产品定义

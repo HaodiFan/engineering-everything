@@ -165,7 +165,7 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertEqual(0, code)
         cat = json.loads(out)
         self.assertEqual(6, cat["total_lanes"])
-        self.assertEqual(50, cat["total_rules"])
+        self.assertEqual(55, cat["total_rules"])
         self.assertEqual(
             [
                 "engineering_baseline",
@@ -181,6 +181,8 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertEqual(len(json_ids), len(set(json_ids)))
         self.assertIn("RV-BIZ-05", json_ids)
         self.assertIn("RV-UI-05", json_ids)
+        for stack_id in ("RV-DESK-01", "RV-MOB-01", "RV-DATA-01", "RV-EXT-01", "RV-INFRA-01"):
+            self.assertIn(stack_id, json_ids)
 
         doc_text = (ROOT / "references/review-rules.md").read_text(encoding="utf-8")
         doc_ids = sorted(set(re.findall(r"\*\*`(RV-[A-Z]+-\d{2})`", doc_text)))
@@ -188,15 +190,16 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertEqual(70, sum(total for _, _, total in self.runner.UX_GROUPS))
 
     def test_per_rule_signal_activation_avoids_noise(self) -> None:
-        # Pure non-auth Python PR with README DX change:
+        # Pure non-auth Python PR with README DX change (standard profile):
         # - business_acceptance has NO RV-BIZ-05 (no journey surface)
         # - code_quality has NO RV-REACT-*, only RV-BUG-01..05, RV-TEST-01, RV-SMELL-01..10 (16 rules)
-        # - security_architecture activates RV-SEC-01, RV-SEC-03, RV-SEC-04, RV-DX-01
+        # - security_architecture activates RV-SEC-01, RV-SEC-03, RV-SEC-04, RV-DX-01 (no desktop/mobile/data/ext/infra noise)
         repo = make_sample_repo(self.tmp_path, with_react_ui=False, with_auth=False, with_dx=True)
         state_dir = self.tmp_path / "signal_state"
         code, out, _ = self.run_cli([
             "init", "--target", str(repo), "--base", "main",
-            "--mode", "pr", "--level", "L1", "--state-dir", str(state_dir), "--json",
+            "--mode", "pr", "--level", "L1", "--profile", "standard",
+            "--state-dir", str(state_dir), "--json",
         ])
         self.assertEqual(0, code, out)
         res = json.loads(out)
@@ -341,12 +344,15 @@ class ReviewRunnerTests(unittest.TestCase):
         )
         self.assertEqual("", git(repo, "status", "--short"))
 
-        # 2. Phase 1 next -> unlocks engineering_baseline
+        # 2. Phase 1 t=0 next -> unlocks engineering_baseline + business_acceptance + code_quality + security_architecture concurrently!
         code, out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
         self.assertEqual(0, code)
         p1 = json.loads(out)
         p1_map = {item["lane_id"]: item for item in p1["ready_lanes"]}
-        self.assertEqual({"engineering_baseline"}, set(p1_map))
+        self.assertEqual(
+            {"engineering_baseline", "business_acceptance", "code_quality", "security_architecture"},
+            set(p1_map),
+        )
 
         self.assertEqual(0, self.submit_json(state_dir, "engineering_baseline", {
             "prompt_token": p1_map["engineering_baseline"]["prompt_token"],
@@ -366,7 +372,7 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertIn("质检进行中", live_html)
         self.assertIn("engineering_baseline", live_html)
 
-        # 3. Phase 2 next -> unlocks all 4 parallel clustered dimensions!
+        # 3. Baseline settled -> immediately unlocks ui_ux_experience alongside remaining 3 core lanes!
         code, out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
         self.assertEqual(0, code)
         p2 = json.loads(out)
@@ -576,7 +582,8 @@ class ReviewRunnerTests(unittest.TestCase):
         state_dir = self.tmp_path / "guard_state"
         self.assertEqual(0, self.run_cli([
             "init", "--target", str(repo), "--base", "main",
-            "--mode", "pr", "--level", "L1", "--state-dir", str(state_dir), "--json",
+            "--mode", "pr", "--level", "L1", "--profile", "standard", "--journey",
+            "--state-dir", str(state_dir), "--json",
         ])[0])
         code, out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
         p1_map = {i["lane_id"]: i for i in json.loads(out)["ready_lanes"]}
@@ -881,7 +888,7 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertEqual(0, code)
         cat = json.loads(out)
         self.assertEqual(7, cat["total_lanes"])   # 6 base + fintech_ledger
-        self.assertEqual(52, cat["total_rules"])  # 50 base + FIN-PAY-01 + ORG-SMELL-11
+        self.assertEqual(57, cat["total_rules"])  # 55 base + FIN-PAY-01 + ORG-SMELL-11
         self.assertEqual("project-fintech", cat["applied_overlays"][0]["name"])
 
         state_dir = self.tmp_path / "overlay_state"
@@ -921,7 +928,7 @@ class ReviewRunnerTests(unittest.TestCase):
                 self.assertEqual(0, code, sub_res)
                 phase_done_seen.extend(m for m in sub_res["milestone_logs"] if "阶段已完成" in m)
 
-        self.assertGreaterEqual(len(phase_done_seen), 3, phase_done_seen)
+        self.assertGreaterEqual(len(phase_done_seen), 2, phase_done_seen)
 
         code, out, _ = self.run_cli(["finalize", "--run", str(state_dir), "--json"])
         self.assertEqual(0, code, out)
@@ -949,7 +956,7 @@ class ReviewRunnerTests(unittest.TestCase):
         code, out, _ = self.run_cli(["catalog", "--overlay", str(preset_overlay), "--json"])
         self.assertEqual(0, code, out)
         cat = json.loads(out)
-        self.assertEqual(56, cat["total_rules"])  # 50 base + 6 DES-PHI-*
+        self.assertEqual(61, cat["total_rules"])  # 55 base + 6 DES-PHI-*
         ui_lane = next(l for l in cat["lanes"] if l["id"] == "ui_ux_experience")
         ui_rule_ids = {r["id"] for r in ui_lane["rules"]}
         for i in range(1, 7):
@@ -965,21 +972,22 @@ class ReviewRunnerTests(unittest.TestCase):
         state_dir = self.tmp_path / "design_state"
         code, out, _ = self.run_cli([
             "init", "--target", str(repo), "--base", "main",
-            "--mode", "pr", "--level", "L1", "--state-dir", str(state_dir), "--json",
+            "--mode", "pr", "--level", "L1", "--profile", "standard", "--journey",
+            "--state-dir", str(state_dir), "--json",
         ])
         self.assertEqual(0, code, out)
-        # Complete Phase 1
+        # Complete engineering_baseline to unlock ui_ux_experience
         _, out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
-        p1 = json.loads(out)["ready_lanes"][0]
+        p1_map = {x["lane_id"]: x for x in json.loads(out)["ready_lanes"]}
         self.assertEqual(0, self.submit_json(state_dir, "engineering_baseline", {
-            "prompt_token": p1["prompt_token"],
+            "prompt_token": p1_map["engineering_baseline"]["prompt_token"],
             "status": "PASS",
             "summary": "baseline ok",
-            "checks": pass_checks(p1["active_rule_ids"], "ok"),
+            "checks": pass_checks(p1_map["engineering_baseline"]["active_rule_ids"], "ok"),
             "evidence": ["pytest"],
         })[0])
 
-        # Phase 2 prompts
+        # Unlocked UI + business prompts
         _, out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
         p2_map = {x["lane_id"]: x for x in json.loads(out)["ready_lanes"]}
         ui_prompt = Path(p2_map["ui_ux_experience"]["prompt_path"]).read_text(encoding="utf-8")
@@ -1028,6 +1036,276 @@ class ReviewRunnerTests(unittest.TestCase):
         self.assertIn("已载入 UI 设计理念 / 审美基准", html_text)
         self.assertIn("praxis-taste.md", html_text)
         self.assertIn("DESIGN.md", html_text)
+
+    def test_fast_profile_auto_routing_pointer_prompts_and_ux_all_pass(self) -> None:
+        # Simulate pr-316-like small UI PR under apps/workbench/ (<= 250 lines):
+        # Monorepo prefix stripping avoids false journey_surface trigger & auto-routes to fast + bundle!
+        repo = self.tmp_path / "workbench_repo"
+        repo.mkdir()
+        git(repo, "init", "-b", "main")
+        git(repo, "config", "user.email", "dev@example.com")
+        git(repo, "config", "user.name", "Dev")
+        (repo / "package.json").write_text(json.dumps({"name": "wb", "dependencies": {"react": "^19.0.0"}}), encoding="utf-8")
+        comp_dir = repo / "apps" / "workbench" / "src" / "components"
+        comp_dir.mkdir(parents=True)
+        (comp_dir / "Panel.tsx").write_text("export const Panel = () => <div>v1</div>;\n", encoding="utf-8")
+        (comp_dir / "Panel.css").write_text(".panel { padding: 8px; }\n", encoding="utf-8")
+        git(repo, "add", ".")
+        git(repo, "commit", "-m", "init")
+
+        git(repo, "checkout", "-b", "feat/panel-polish")
+        (comp_dir / "Panel.tsx").write_text(
+            "export const Panel = () => (\n" + "".join(f"  <div>row {i}</div>\n" for i in range(35)) + ");\n",
+            encoding="utf-8",
+        )
+        (comp_dir / "Panel.css").write_text("".join(f".r{i} {{ gap: {i}px; }}\n" for i in range(35)), encoding="utf-8")
+        git(repo, "add", ".")
+        git(repo, "commit", "-m", "style: polish panel")
+
+        fast_dir = self.tmp_path / "fast_state"
+        code, out, _ = self.run_cli([
+            "init", "--target", str(repo), "--base", "main",
+            "--mode", "pr", "--level", "L1", "--state-dir", str(fast_dir), "--json",
+        ])
+        self.assertEqual(0, code, out)
+        fast_init = json.loads(out)
+        self.assertEqual("fast", fast_init["profile"])
+        self.assertEqual("bundle", fast_init["dispatch_mode"])
+        self.assertFalse(fast_init["signals"]["has_journey_surface"])
+        self.assertLessEqual(fast_init["total_active_rules"], 18)
+
+        # Pointer-first prompts are dramatically smaller than --full-prompts
+        full_dir = self.tmp_path / "full_prompt_state"
+        self.assertEqual(0, self.run_cli([
+            "init", "--target", str(repo), "--base", "main",
+            "--mode", "pr", "--level", "L1", "--profile", "standard", "--full-prompts",
+            "--state-dir", str(full_dir), "--json",
+        ])[0])
+        _, nxt_fast_out, _ = self.run_cli(["next", "--run", str(fast_dir), "--emit-prompts", "--json"])
+        _, nxt_full_out, _ = self.run_cli(["next", "--run", str(full_dir), "--emit-prompts", "--json"])
+        nxt_fast = json.loads(nxt_fast_out)
+        nxt_full = json.loads(nxt_full_out)
+        fast_bytes = sum(Path(d["prompt_path"]).stat().st_size for d in nxt_fast["ready_lanes"])
+        full_bytes = sum(Path(d["prompt_path"]).stat().st_size for d in nxt_full["ready_lanes"])
+        self.assertLess(fast_bytes, full_bytes * 0.55)
+
+        # Fast profile allows ui_ux_experience submission WITHOUT 14-group ux_coverage matrix
+        eb = next(d for d in nxt_fast["ready_lanes"] if d["lane_id"] == "engineering_baseline")
+        self.assertEqual(0, self.submit_json(fast_dir, "engineering_baseline", {
+            "prompt_token": eb["prompt_token"], "status": "PASS", "summary": "ok",
+            "checks": pass_checks(eb["active_rule_ids"], "ok"), "evidence": ["ok"], "commands_run": ["ok"],
+        })[0])
+        _, nxt_fast2_out, _ = self.run_cli(["next", "--run", str(fast_dir), "--emit-prompts", "--json"])
+        ui_fast = next(d for d in json.loads(nxt_fast2_out)["ready_lanes"] if d["lane_id"] == "ui_ux_experience")
+        self.assertEqual(0, self.submit_json(fast_dir, "ui_ux_experience", {
+            "prompt_token": ui_fast["prompt_token"], "status": "PASS", "summary": "fast ui ok",
+            "checks": pass_checks(ui_fast["active_rule_ids"], "ok"), "evidence": ["checked"],
+            "meta": {"material_type": "runnable", "unfamiliar_language_check": "PASS", "company_cases_loaded": False},
+        })[0])
+
+        # Standard profile supports --ux-all-pass shortcut expanding all 14 UX groups (70 rules)
+        std_dir = self.tmp_path / "std_ux_shortcut"
+        self.assertEqual(0, self.run_cli([
+            "init", "--target", str(repo), "--base", "main",
+            "--mode", "pr", "--level", "L1", "--profile", "standard",
+            "--state-dir", str(std_dir), "--json",
+        ])[0])
+        _, nxt_std_out, _ = self.run_cli(["next", "--run", str(std_dir), "--emit-prompts", "--json"])
+        eb_s = next(d for d in json.loads(nxt_std_out)["ready_lanes"] if d["lane_id"] == "engineering_baseline")
+        self.assertEqual(0, self.submit_json(std_dir, "engineering_baseline", {
+            "prompt_token": eb_s["prompt_token"], "status": "PASS", "summary": "ok",
+            "checks": pass_checks(eb_s["active_rule_ids"], "ok"), "evidence": ["ok"], "commands_run": ["ok"],
+        })[0])
+        _, nxt_std2_out, _ = self.run_cli(["next", "--run", str(std_dir), "--emit-prompts", "--json"])
+        ui_s = next(d for d in json.loads(nxt_std2_out)["ready_lanes"] if d["lane_id"] == "ui_ux_experience")
+        code, sub_out, _ = self.run_cli(
+            ["submit", "--run", str(std_dir), "--lane", "ui_ux_experience", "--ux-all-pass", "--input", "-", "--json"],
+            stdin_data=json.dumps({
+                "prompt_token": ui_s["prompt_token"], "status": "PASS", "summary": "all 70 UX pass",
+                "checks": pass_checks(ui_s["active_rule_ids"], "ok"), "evidence": ["checked"],
+                "meta": {
+                    "material_type": "runnable", "unfamiliar_language_check": "PASS", "company_cases_loaded": False,
+                    "applicability": "not_applicable", "execution_state": "not_applicable",
+                },
+            }),
+        )
+        self.assertEqual(0, code, sub_out)
+
+    def test_single_shot_bundle_dispatch_and_submit_batch_validation(self) -> None:
+        repo = make_sample_repo(self.tmp_path, with_react_ui=False, with_auth=False)
+        state_dir = self.tmp_path / "bundle_state"
+        code, out, _ = self.run_cli([
+            "init", "--target", str(repo), "--base", "main",
+            "--mode", "pr", "--level", "L1", "--state-dir", str(state_dir), "--json",
+        ])
+        self.assertEqual(0, code, out)
+        code, out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
+        self.assertEqual(0, code, out)
+        nxt = json.loads(out)
+        self.assertEqual("bundle", nxt["dispatch_mode"])
+        bundle = nxt["bundle"]
+        self.assertEqual(
+            {"engineering_baseline", "business_acceptance", "code_quality", "security_architecture"},
+            set(bundle["lane_ids"]),
+        )
+        b_text = Path(bundle["prompt_path"]).read_text(encoding="utf-8")
+        self.assertIn("submit-batch", b_text)
+        # Bundle prompt is smaller than 4 separate prompts due to deduplicated context
+        sep_bytes = sum(Path(d["prompt_path"]).stat().st_size for d in nxt["ready_lanes"])
+        self.assertLess(Path(bundle["prompt_path"]).stat().st_size, sep_bytes)
+
+        # Incomplete checks inside submit-batch MUST STILL be rejected
+        bad_code, _, _ = self.run_cli(
+            ["submit-batch", "--run", str(state_dir), "--input", "-", "--json"],
+            stdin_data=json.dumps({"submissions": [{
+                "lane_id": "engineering_baseline",
+                "prompt_token": nxt["ready_lanes"][0]["prompt_token"],
+                "status": "PASS", "summary": "missing checks",
+                "checks": [{"id": "RV-BASE-01", "status": "PASS", "note": "only 1"}],
+                "evidence": ["ok"],
+            }]}),
+        )
+        self.assertEqual(2, bad_code)
+
+        # Complete 4-lane single-shot batch finishes entire non-UI PR in 1 call!
+        subs = []
+        for d in nxt["ready_lanes"]:
+            lid = d["lane_id"]
+            pl = {
+                "lane_id": lid, "prompt_token": d["prompt_token"], "status": "PASS",
+                "summary": f"{lid} ok in single batch",
+                "checks": pass_checks(d["active_rule_ids"], "verified"),
+                "evidence": ["pytest ok"], "commands_run": ["pytest"],
+            }
+            if lid == "business_acceptance":
+                pl["meta"] = {"acceptance": [{"id": "AC1", "expected": "v2", "actual": "v2", "evidence": ["pytest"], "status": "PASS"}]}
+            subs.append(pl)
+        ok_code, ok_out, _ = self.run_cli(
+            ["submit-batch", "--run", str(state_dir), "--input", "-", "--json"],
+            stdin_data=json.dumps({"submissions": subs}),
+        )
+        self.assertEqual(0, ok_code, ok_out)
+        self.assertEqual(4, json.loads(ok_out)["count"])
+        _, after_out, _ = self.run_cli(["next", "--run", str(state_dir), "--json"])
+        self.assertEqual("finalize", json.loads(after_out)["action"])
+
+        # Release/L2 defaults to parallel dispatch
+        rel_dir = self.tmp_path / "rel_parallel"
+        self.assertEqual(0, self.run_cli([
+            "init", "--target", str(repo), "--base", "main",
+            "--mode", "release", "--level", "L2", "--state-dir", str(rel_dir), "--json",
+        ])[0])
+        _, rel_nxt, _ = self.run_cli(["next", "--run", str(rel_dir), "--emit-prompts", "--json"])
+        self.assertEqual("parallel", json.loads(rel_nxt)["dispatch_mode"])
+
+    def test_delta_recheck_inheritance_and_stage0_fast_fail_advisories(self) -> None:
+        repo = make_sample_repo(self.tmp_path, with_react_ui=False, with_auth=False)
+        state_dir = self.tmp_path / "delta_state"
+        code, out, _ = self.run_cli([
+            "init", "--target", str(repo), "--base", "main",
+            "--mode", "pr", "--level", "L1", "--draft", "--state-dir", str(state_dir), "--json",
+        ])
+        self.assertEqual(0, code, out)
+        init_res = json.loads(out)
+        self.assertTrue(any("Draft PR" in a for a in init_res["fast_fail_advisories"]))
+
+        # Round 1: fail ONLY RV-BUG-01 in code_quality, pass everything else
+        _, nxt_out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
+        subs = []
+        for d in json.loads(nxt_out)["ready_lanes"]:
+            lid = d["lane_id"]
+            checks = pass_checks(d["active_rule_ids"], "ok")
+            findings = []
+            status = "PASS"
+            if lid == "code_quality":
+                status = "FAIL"
+                for c in checks:
+                    if c["id"] == "RV-BUG-01":
+                        c["status"] = "FAIL"
+                        c["note"] = "missing guard"
+                findings = [{"rule_id": "RV-BUG-01", "severity": "P1", "location": "app.py:2", "problem": "p", "impact": "i", "fix": "f"}]
+            subs.append({
+                "lane_id": lid, "prompt_token": d["prompt_token"], "status": status,
+                "summary": lid, "checks": checks, "evidence": ["checked"], "findings": findings,
+                **({"meta": {"acceptance": [{"id": "AC1", "expected": "v2", "actual": "v2", "evidence": ["ok"], "status": "PASS"}]}} if lid == "business_acceptance" else {}),
+            })
+        self.assertEqual(0, self.run_cli(["submit-batch", "--run", str(state_dir), "--input", "-", "--json"], stdin_data=json.dumps({"submissions": subs}))[0])
+
+        # Fix app.py and recheck -> business_acceptance & security_architecture carried forward; code_quality enters Delta mode!
+        (repo / "app.py").write_text("def hello(name: str = 'ok'):\n    return name\n", encoding="utf-8")
+        git(repo, "add", "app.py")
+        git(repo, "commit", "-m", "fix: guard")
+        code, r2_out, _ = self.run_cli(["recheck", "--run", str(state_dir), "--json"])
+        self.assertEqual(0, code, r2_out)
+        r2 = json.loads(r2_out)
+        self.assertIn("business_acceptance", r2["carried_forward_lanes"])
+        self.assertIn("security_architecture", r2["carried_forward_lanes"])
+        self.assertIn("code_quality", r2["reopened_lanes"])
+
+        # In Delta mode, code_quality ONLY needs to submit RV-BUG-01; prior PASS rules auto-inherit!
+        _, r2_nxt_out, _ = self.run_cli(["next", "--run", str(state_dir), "--emit-prompts", "--json"])
+        cq_r2 = next(d for d in json.loads(r2_nxt_out)["ready_lanes"] if d["lane_id"] == "code_quality")
+        self.assertIn("Delta", Path(cq_r2["prompt_path"]).read_text(encoding="utf-8"))
+        code, delta_res = self.submit_json(state_dir, "code_quality", {
+            "prompt_token": cq_r2["prompt_token"], "status": "PASS", "summary": "RV-BUG-01 fixed",
+            "checks": [{"id": "RV-BUG-01", "status": "PASS", "note": "reverified fixed"}],
+            "evidence": ["pytest ok"],
+        })
+        self.assertEqual(0, code, delta_res)
+
+    def test_nine_domain_project_types_isolation_and_overlay_extension(self) -> None:
+        def _probe(name: str, f1: dict[str, str], f2: dict[str, str], extra: list[str] | None = None) -> dict:
+            r = self.tmp_path / f"arch_{name}"
+            r.mkdir()
+            git(r, "init", "-b", "main")
+            git(r, "config", "user.email", "dev@example.com")
+            git(r, "config", "user.name", "Dev")
+            for k, v in f1.items():
+                (r / k).parent.mkdir(parents=True, exist_ok=True)
+                (r / k).write_text(v, encoding="utf-8")
+            git(r, "add", ".")
+            git(r, "commit", "-m", "init")
+            git(r, "checkout", "-b", "feat")
+            for k, v in f2.items():
+                (r / k).parent.mkdir(parents=True, exist_ok=True)
+                (r / k).write_text(v, encoding="utf-8")
+            git(r, "add", ".")
+            git(r, "commit", "-m", "feat")
+            sd = self.tmp_path / f"st_{name}"
+            code, out, _ = self.run_cli(
+                ["init", "--target", str(r), "--base", "main", "--mode", "pr", "--level", "L1", "--state-dir", str(sd), "--json"] + (extra or [])
+            )
+            self.assertEqual(0, code, out)
+            return json.loads(out)
+
+        all_stack_rules = {"RV-DX-01", "RV-AI-01", "RV-DESK-01", "RV-MOB-01", "RV-DATA-01", "RV-EXT-01", "RV-INFRA-01"}
+
+        desk = _probe("desk", {"package.json": '{"dependencies":{"electron":"33.0","react":"19.0"}}', "electron/preload.ts": "export const a=1;\n", "src/App.tsx": "export const A=()=>null;\n"}, {"electron/preload.ts": "export const a=2;\n", "src/App.tsx": "export const A=()=><div/>;\n"})
+        self.assertEqual(["desktop_app", "web_ui"], desk["project_types"])
+        self.assertEqual({"RV-DESK-01"}, set(desk["active_rule_ids"]["security_architecture"]) & all_stack_rules)
+
+        mob = _probe("mob", {"package.json": '{"dependencies":{"react-native":"0.76"}}', "src/Home.tsx": "export const H=1;\n"}, {"src/Home.tsx": "export const H=2;\n"})
+        self.assertEqual(["mobile_app"], mob["project_types"])
+        self.assertEqual({"RV-MOB-01"}, set(mob["active_rule_ids"]["security_architecture"]) & all_stack_rules)
+
+        scraper = _probe("scraper", {"requirements.txt": "playwright\n", "crawlers/shop.py": "x=1\n"}, {"crawlers/shop.py": "x=2\n"})
+        self.assertEqual(["data_automation"], scraper["project_types"])
+        self.assertEqual({"RV-DATA-01"}, set(scraper["active_rule_ids"]["security_architecture"]) & all_stack_rules)
+        self.assertNotIn("ui_ux_experience", scraper["required_lanes"])
+
+        ext = _probe("ext", {"manifest.json": '{"manifest_version":3,"name":"X"}', "background.ts": "let x=1;\n"}, {"manifest.json": '{"manifest_version":3,"name":"X","permissions":["storage"]}', "background.ts": "let x=2;\n"})
+        self.assertEqual(["browser_extension"], ext["project_types"])
+        self.assertEqual({"RV-EXT-01"}, set(ext["active_rule_ids"]["security_architecture"]) & all_stack_rules)
+
+        infra = _probe("infra", {"Dockerfile": "FROM python:3.12\n", ".github/workflows/ci.yml": "name: ci\n"}, {"Dockerfile": "FROM python:3.12\nUSER app\n"})
+        self.assertEqual(["infra_devops"], infra["project_types"])
+        self.assertEqual({"RV-INFRA-01"}, set(infra["active_rule_ids"]["security_architecture"]) & all_stack_rules)
+        self.assertNotIn("ui_ux_experience", infra["required_lanes"])
+
+        ai_cli = _probe("aicli", {"pyproject.toml": '[project]\ndependencies=["anthropic"]\n[project.scripts]\nc="c:m"\n', "agents/p.py": "x=1\n", "bin/cli.py": "y=1\n"}, {"agents/p.py": "x=2\n", "bin/cli.py": "y=2\n"})
+        self.assertEqual(["ai_agent", "cli_sdk_tool"], ai_cli["project_types"])
+        self.assertEqual({"RV-AI-01", "RV-DX-01"}, set(ai_cli["active_rule_ids"]["security_architecture"]) & all_stack_rules)
+        self.assertNotIn("ui_ux_experience", ai_cli["required_lanes"])
 
 
 if __name__ == "__main__":

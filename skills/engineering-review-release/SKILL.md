@@ -2,14 +2,14 @@
 name: engineering-review-release
 description: Use when reviewing code, PRs, merge readiness, CI failures, release risk, rollback plans, or deciding whether a change is safe to ship.
 metadata:
-  version: 0.18.0
+  version: 0.19.0
 ---
 
 # Engineering Review Release / Review 与发布
 
 默认 code-review 立场：问题先行，按严重度列 bugs、行为回归、坏味道、缺测试、安全与发布阻断。摘要永远次要。
 
-本 Skill 采用 **Script-Driven + 动态可配置 + 产品认知/用户旅程 + HTML 可视化报告** 强控制链路（`scripts/review_runner.py` + `scripts/review_report_html.py` + `references/review-rules.md` + `references/user-journey.md`）：默认基线聚类为 **3 个执行阶段、6 个正交 Review 维度、50 条原子规则（`RV-*`，含 L4/L5 产品认知与旅程规则 `RV-BIZ-05` / `RV-UI-05`）**（UI 维度另强制 14 组 70 条 `UX-*` 结构化覆盖），支持按公司/项目/CLI **动态叠加或裁剪配置**。脚本掌控进度、并发解锁、物理无源码盲测 Prompt、逐条 `checks[]` 交账、全程过程日志，并默认产出含“预期 vs 实际旅程对比”的 **`report.html`** + `report.md`。
+本 Skill 采用 **Script-Driven + 2 阶段零等待并发 + 三档 Profile + 动态可配置 + HTML 可视化报告** 强控制链路（`scripts/review_runner.py` + `scripts/review_report_html.py` + `references/review-rules.md` + `references/user-journey.md`）：默认基线聚类为 **2 个执行阶段、6 个正交 Review 维度、50 条原子规则（`RV-*`，含 `RV-BIZ-05` / `RV-UI-05`）**（UI 维度在 `standard/full` 档强制 14 组 70 条 `UX-*` 结构化覆盖），默认按变更规模与信号自动选档（`fast` 17 条 / `standard` / `full`）并用 Pointer-First 瘦身 Prompt、物理隔离无源码盲测与 Delta 增量复审大幅压缩耗时，同时默认产出 **`report.html`** + `report.md`。
 
 ## 何时使用
 
@@ -17,30 +17,29 @@ metadata:
 - Stage 6 实现（`engineering-build-verify`）或 Stage 9 重构收尾后进入独立验证与门禁。
 - 团队交付进入 Gate 2“交付前确认做对了”，需要下结论、留证据包或检查发布准备。
 
-## Script-Driven 三阶段 6 维度控制流（默认必走）
+## Script-Driven 两阶段 6 维度并发控制流（默认必走）
 
 编排脚本位于源仓库 `scripts/review_runner.py`（软链安装取本目录真实路径向上两级即源仓库；可用 `catalog --target <项目目录>` 查看合并叠加后的完整生效规则目录）。
 
-1. **阶段 0：初始化定界与配置叠加（`init`）**：
-   - 运行 `python3 <源仓库>/scripts/review_runner.py init --target <项目目录> --mode <pr|delivery|release|audit> --level <L0|L1|L2|L3>`（团队交付附 `--dri`、`--reviewer`、`--intent-card`；有发布加 `--has-release`；截图/原型用 `--mode audit --material screenshot|prototype|runnable`）。
-   - **动态配置叠加**：自动合并基线 `data/review_pipeline.json` → `$EE_PRIVATE_ASSETS/review_pipeline.json`（及 `review_overlays/*.json`）→ `<项目>/.evolution/review_pipeline.json`（及 `review_overlays/*.json`）→ CLI `--overlay <path.json>` / `--enable-lane` / `--disable-lane <id>:<理由>`（`never_waived` 硬门禁不可禁用），并冻结至 `<run_dir>/effective_config.json`。
-   - 自动扫描 diff（含未提交改动）、Change Size 与风险信号，锁定 `workspace_fingerprint`，精准激活必检维度与子规则。
-2. **阶段 1：前置工程底线门禁（Phase 1）**：
-   - 跑 `next --run <run_dir> --emit-prompts` 解锁 **维度 1 `engineering_baseline`**（`RV-BASE-01`..`05`：Diff 卫生、构建/类型、Lint/静态扫描、测试真实通过、反跳步核对；不可豁免）。
-   - 完成后在 `checks[]` 逐条交账并跑 `submit --run <run_dir> --lane engineering_baseline --input -` 落盘。**Phase 1 落盘前，Phase 2 锁死。**
-3. **阶段 2：四大核心维度并发深度评审（Phase 2，4 维度全部可并发）**：
-   - 跑 `next --run <run_dir> --emit-prompts` 解锁并自动注入 Phase 1 证据，推荐派发独立只读 subagent 并发执行：
-     - **维度 2 `business_acceptance`**（`RV-BIZ-01`..`05`）：业务闭环、需求卡 AC 一手证据、负向路径，以及命中旅程/信息架构/新功能/异步工作流时激活的 `RV-BIZ-05`（先独立推导 Expected Journey 再对比实际路径，排查 `AP-01..08` 八大产品反模式；符合高频习惯的标准后台正常放行）。
-     - **维度 3 `code_quality`**（`RV-REACT-01..02`[React 激活] + `RV-BUG-01..05` + `RV-TEST-01` + `RV-SMELL-01..10`）：React Doctor 变更扫描、正确性/边界/并发、测试防护与 10 条坏味道（联动 `references/refactoring-rules.md`）。
-     - **维度 4 `security_architecture`**（`RV-SEC-01..05` + `RV-ARCH-01..04` + `RV-DX-01` + `RV-AI-01`）：安全脱敏与权限（不可豁免）、架构/红线/迁移、接口 DX 与 AI/自动化链路（按信号精准激活子规则）。
-     - **维度 5 `ui_ux_experience`**（`RV-UI-05`[旅程激活] + `RV-BOMB-01..03` + `RV-UI-01..04` + 14 组 70 条 `UX-*`）：命中旅程变更时先用脚本生成的物理隔离无源码盲测 Prompt（`ui_ux_experience.blind.md`）做 Blind User Walkthrough 记录 7 项观察点；再按 `references/bombadil.md` 做状态探索（工具缺失/未隔离强制 `BLOCKED` 禁标 `N/A`），并委托 `engineering-ui-ux-audit` 完成 `UX-VIS-09` 与 14 组 70 条 `UX-*` 结构化覆盖。
-   - 以及叠加层注入的自定义维度或阶段（如 Phase 2.5 行业合规）。
-4. **阶段 3：上线发布准备与确定性总决（Phase 3 + `finalize`）**：
-   - 命中发布/交付/L2+ 时先完成 **维度 6 `release_readiness`**（`RV-REL-01`..`03`：业务侧就绪、技术侧放量/监控/已验证回滚、PR/文档生命周期）。
-   - 运行 `finalize --run <run_dir>`：核验全维度全规则无漏检、指纹未漂移、L1+ 独立验收人（`reviewer != dri`），自动生成 `evidence-package.json` 并调用 `scripts/gate_check.py` 机检，**同时产出 `report.html`（可视化交互报告，按维度讲清待优化项）与 `report.md`**。
-   - 已有 P0/P1 阻断需提前结束时跑 `finalize --early-stop --reason "..."`；审查中途也可跑 `render --run <run_dir>` 生成实时进度 HTML。
-5. **修复后增量复审（`recheck`）**：
-   - 修复后跑 `recheck --run <run_dir>` 进入 Round N+1：自动结转未受影响维度，重开受影响与失败/受阻维度并把上轮带 `rule_id` 的 Findings 注入新 Prompt 定点复验。
+1. **阶段 0：初始化定界、快返预检与智能定档（`init`）**：
+   - 运行 `python3 <源仓库>/scripts/review_runner.py init --target <项目目录> --mode <pr|delivery|release|audit> --level <L0|L1|L2|L3> [--profile auto|fast|standard|full] [--dispatch auto|bundle|parallel] [--project-type auto|web_ui|desktop_app|mobile_app|browser_extension|data_automation|backend_api|ai_agent|cli_sdk_tool|infra_devops]`（团队交付附 `--dri`、`--reviewer`、`--intent-card`；有发布加 `--has-release`；Draft PR 加 `--draft`；截图/原型用 `--mode audit --material screenshot|prototype|runnable`）。
+   - **领域技术栈按需挂载（不涉及就不 Review）**：根据仓库清单 + 本次 diff 实际触达范围，自动识别 9 类领域技术栈包（支持多标签组合与 Overlay 自定义扩展），仅激活命中的专项规则（`RV-DESK-01` / `RV-MOB-01` / `RV-DATA-01` / `RV-EXT-01` / `RV-INFRA-01` / `RV-AI-01` / `RV-DX-01`）并向 Prompt 注入对应注意事项；未涉及的领域自动 `AUTO_NA` 零干扰。
+   - **快返预检 + 智能定档 + 动态叠加**：自动检测冲突标记（`has_merge_conflicts`）与 `--draft`；按改动行数、文件数与精准信号自动决定 `fast` / `standard` / `full`；合并基线 → 私有层 → 项目层 → CLI `--overlay` 并冻结至 `<run_dir>/effective_config.json`。
+2. **阶段 1：核心五维审查（支持单批次合批 `bundle` 与独立并发 `parallel`）**：
+   - 跑 `next --run <run_dir> --emit-prompts`（默认 Pointer-First 瘦身 Prompt，需内联全文加 `--full-prompts`）：
+     - **`bundle` 模式（`fast` / `standard` 默认，一次输入一次结果）**：脚本自动把当前就绪的静态维度（`t=0` 为 D1+D2+D3+D4）合并成 **1 份 `bundle_batch.md`**，派 **1 个独立只读审查者**读一遍 diff、一次输出全部维度的 JSON 数组并一次 `submit-batch --run <run_dir> --input -` 落盘（仍逐维度跑全部 Python 硬校验）；非 UI PR 全程仅 **1 次 AI 批次**！
+     - **`parallel` 模式（`full` / L2+ / release 默认，或 `--dispatch parallel`）**：按「1 维度 = 1 独立只读 Subagent」并发派发，避免超大 PR 上下文过载；维度 1 落盘后立刻再跑 `next` 解锁维度 5。
+     - **五大维度职责**：
+       - **维度 1 `engineering_baseline`**（`RV-BASE-01`..`05`，不可豁免）：Diff 卫生、变更规模、构建/类型/Lint、后端优先测试、新依赖溯源。
+       - **维度 2 `business_acceptance`**（`RV-BIZ-01`..`05`）：业务闭环、AC 一手证据、异常/负向路径、回归对账与旅程反模式 `RV-BIZ-05`。
+       - **维度 3 `code_quality`**（`RV-REACT-01..02` + `RV-BUG-01..05` + `RV-TEST-01` + `RV-SMELL-01..10`）：React 增量体检、正确性/边界、测试缺口与 10 条坏味道。
+       - **维度 4 `security_architecture`**（`RV-SEC-01..05` + `RV-ARCH-01..04` + `RV-DX-01` + `RV-AI-01`，不可禁用）：安全脱敏（必检）与按子信号精准激活的鉴权/架构/DX/AI 规则。
+       - **维度 5 `ui_ux_experience`**（仅依赖维度 1；`RV-UI-05` + `RV-BOMB-01..03` + `RV-UI-01..04` + 14 组 70 条 `UX-*`）：激活 `RV-UI-05` 时无源码盲测（`ui_ux_experience.blind.md`）**永不合批**，必须独立无源码先行；随后做 Bombadil 状态探索与 `engineering-ui-ux-audit` 走查（全通可用 `--ux-all-pass`；`fast` 档免交 14 组矩阵）。
+3. **阶段 2：上线发布准备与确定性总决（Phase 2 + `finalize`）**：
+   - 命中发布/交付/L2+ 时完成 **维度 6 `release_readiness`**（`RV-REL-01`..`03`：业务侧就绪、技术侧放量/监控/已验证回滚、PR/文档生命周期）。
+   - 运行 `finalize --run <run_dir>`：核验全维度全规则无漏检、指纹未漂移、L1+ 独立验收人（`reviewer != dri`），自动调用 `scripts/gate_check.py` 机检并产出 **`report.html` + `report.md`**。已有 P0/P1 阻断可跑 `finalize --early-stop --reason "..."`。
+4. **修复后 Delta 增量复审（`recheck`）**：
+   - 修复后跑 `recheck --run <run_dir>` 进入 Round N+1：自动用 `git log --no-merges` 剔除合并上游带来的无关文件噪音，精准结转未受影响维度（`business_acceptance` 仅失败重开，`code_quality` / `security_architecture` / `ui_ux_experience` 按实际改到的桶重开）；对重开的非 `always` 维度自动启用 **Delta 模式**——继承上轮已 `PASS` 的规则，只需复验上轮失败/受阻/命中 Finding 的规则（强制全量重审加 `--full-recheck`）。
 
 ## 过程日志与 HTML 结果呈现（必做）
 
@@ -84,7 +83,7 @@ Residual risk:
 本目录没有的参考文件（文中按名字提到的），在源仓库的 `references/` 下：取本 Skill 目录的真实路径（它是软链）往上两级就是源仓库。找不到就直说没读到，不要假装读过。
 
 - `references/review-rules.md`：查看 6 个聚类维度、50 条编号规则（`RV-*`）完整清单时就读。
-- `references/review-pipeline.md`：执行脚本驱动的三阶段评审、配置叠加（overlay）、过程日志、HTML 报告渲染或增量复审时就读。
+- `references/review-pipeline.md`：执行脚本驱动的两阶段并发评审、三档 Profile、配置叠加（overlay）、过程日志、HTML 报告渲染或 Delta 增量复审时就读。
 - `references/user-journey.md`：涉及新功能、信息架构、工作台、跨角色或异步工作流，要做 Expected vs Actual Journey、8 大产品反模式或 Blind Walkthrough 时就读。
 - `references/code-review-standards.md`：做代码评审口径核对时。
 - `references/refactoring-rules.md`：命中 `RV-SMELL-*` 坏味道需要手法、前置测试和阻塞判断时。

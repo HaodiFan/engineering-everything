@@ -1,33 +1,149 @@
 {
-  "schema_version": "3",
-  "description": "Clustered post-development review pipeline: 3 execution phases, 6 MECE review dimensions (modules), and 50 atomic numbered RV-* rules (including L4/L5 Product Cognition & User Journey rules) organized by sub-group. Composable with private/project/CLI overlays.",
+  "schema_version": "5",
+  "description": "High-throughput clustered post-development review pipeline: 2 execution phases, 6 MECE review dimensions, 53 atomic RV-* rules (50 core + 3 stack-specific), 7 project-type tech-stack profiles, tiered profiles (fast/standard/full), single-shot bundle dispatch, pointer-first prompts, and delta recheck.",
+  "project_types": {
+    "web_ui": {
+      "title": "Web 前端与 UI/UX 应用",
+      "tech_stacks": ["React", "Next.js", "Vue", "Svelte", "Tailwind/CSS", "Vite"],
+      "signal": "is_web_ui",
+      "primary_tools": ["React Doctor (--scope changed)", "Bombadil 状态探索", "陌生语言检查 (UX-VIS-09)", "浏览器预览走查"],
+      "focus_points": [
+        "空态/加载态/错态/窄屏截断与响应式布局",
+        "状态同步、重复点击幂等与异步竞态",
+        "键盘焦点、对比度与可访问性及 DESIGN.md 对标"
+      ]
+    },
+    "desktop_app": {
+      "title": "桌面应用（Electron / Tauri / 原生桌面）",
+      "tech_stacks": ["Electron", "Tauri", "SwiftUI/AppKit", "PyQt/PySide", "Wails", "Flutter Desktop"],
+      "signal": "is_desktop_app",
+      "primary_tools": ["构建与打包检查", "IPC/权限边界审查", "桌面 UI 交互走查"],
+      "focus_points": [
+        "进程与 IPC 隔离（Electron contextIsolation/nodeIntegration/preload 最小暴露；Tauri command 白名单）",
+        "本地文件系统跨平台路径、托盘/快捷键/多窗口/休眠唤醒与深浅色适配",
+        "离线降级、本地数据库迁移兼容、安装包签名/公证与自动更新回滚"
+      ]
+    },
+    "mobile_app": {
+      "title": "移动端与小程序应用",
+      "tech_stacks": ["iOS Swift", "Android Kotlin", "React Native", "Expo", "Flutter", "微信小程序"],
+      "signal": "is_mobile_app",
+      "primary_tools": ["模拟器/真机截图或走查", "类型与构建检查"],
+      "focus_points": [
+        "弱网/断网、前后台切换与进程被杀后的状态恢复",
+        "系统权限按需申请与用户拒绝后的兜底路径",
+        "安全区/刘海屏/键盘遮挡、手势冲突与旧版本 API 向后兼容"
+      ]
+    },
+    "data_automation": {
+      "title": "数据获取、爬虫、RPA 与数据管道",
+      "tech_stacks": ["Playwright", "Puppeteer", "Selenium", "Scrapy", "DrissionPage", "Airflow/ETL", "ADB/RPA"],
+      "signal": "is_data_automation",
+      "primary_tools": ["单测/Fixture 回放对账", "密钥与 ToS 合规核查", "资源句柄释放检查"],
+      "focus_points": [
+        "严禁绕过 CAPTCHA/访问控制；核查平台 ToS、授权边界、限流退避与 jitter",
+        "防解析漂移：DOM/接口结构变化必须显式告警失败，严禁静默吐空数据伪装成功",
+        "幂等去重键、断点续传/增量重跑、浏览器上下文/连接池与临时文件 100% 释放"
+      ]
+    },
+    "backend_api": {
+      "title": "后端服务、API 与数据存储",
+      "tech_stacks": ["FastAPI/Django", "Express/NestJS", "Go", "Java/Spring", "SQL/Prisma/Alembic", "GraphQL/gRPC"],
+      "signal": "is_backend_api",
+      "primary_tools": ["单元测试/集成测试/契约测试", "Migration 升级验证", "安全与并发静态审阅"],
+      "focus_points": [
+        "鉴权默认拒绝、多租户隔离、注入防护与 webhook 签名防重放",
+        "事务边界、并发锁、幂等键与部分失败补偿回滚",
+        "Schema 前向/后向迁移兼容、外部 IO 超时与熔断降级（纯后端自动跳过 UI 维度）"
+      ]
+    },
+    "ai_agent": {
+      "title": "AI / LLM / Agent / OCR / CV 应用",
+      "tech_stacks": ["OpenAI/Anthropic/Gemini", "MCP", "RAG", "LangChain/Workflow", "OCR/YOLO/CV", "Agent Skills"],
+      "signal": "is_ai_agent",
+      "primary_tools": ["Eval/Replay 回归集", "Schema 校验单测", "Prompt 与密钥扫描"],
+      "focus_points": [
+        "Prompt 与模型版本可追溯/可回滚；结构化输出强 Schema 校验与容错解析",
+        "不可信输入防 Prompt Injection、工具调用最小权限与高风险动作人工确认",
+        "调用观测（provider/model/token/latency/error）、超时降级与 Eval 回归证据"
+      ]
+    },
+    "cli_sdk_tool": {
+      "title": "CLI 工具、SDK、基础库与工程 Skill",
+      "tech_stacks": ["Python CLI", "Node/TS CLI", "Rust/Go CLI", "SDK/Library", "Engineering Skills"],
+      "signal": "is_cli_sdk_tool",
+      "primary_tools": ["CLI 集成测试与退出码断言", "契约兼容性检查", "文档示例核对"],
+      "focus_points": [
+        "首次使用路径清晰、非零退出码规范、错误信息可直接指导修复",
+        "参数/公开 API/JSON 输出契约向后兼容，README 与示例与实现同步（自动跳过 UI 维度）"
+      ]
+    },
+    "browser_extension": {
+      "title": "浏览器插件（Chrome / Edge / Firefox Extension）",
+      "tech_stacks": ["Manifest V3", "Content Scripts", "Service Worker", "Popup/SidePanel", "chrome.storage"],
+      "signal": "is_browser_extension",
+      "primary_tools": ["manifest.json 权限审查", "构建产物与扩展加载验证", "Popup/SidePanel 走查"],
+      "focus_points": [
+        "permissions 与 host_permissions 最小化，禁止不必要的 <all_urls> 或宽泛权限",
+        "MV3 Service Worker 随时休眠回收：严禁依赖内存全局变量存状态，须持久化到 chrome.storage",
+        "Content Script 与宿主页面 DOM/CSS 隔离（Shadow DOM/前缀），跨上下文消息做来源与字段校验"
+      ]
+    },
+    "infra_devops": {
+      "title": "基础设施、容器与 CI/CD 部署",
+      "tech_stacks": ["Docker", "Docker Compose", "GitHub Actions", "Kubernetes/Helm", "Terraform/IaC"],
+      "signal": "is_infra_devops",
+      "primary_tools": ["配置语法/lint 校验", "镜像与密钥扫描", "回滚与变更影响评估"],
+      "focus_points": [
+        "容器非 root 运行、锁定基础镜像版本与最小构建层，禁止密钥写入镜像层或日志",
+        "CI Workflow 权限最小化（permissions: read-only 优先）、Pin 第三方 Action 版本与 Secret 掩码",
+        "健康检查、优雅停机（SIGTERM）、资源限额及 IaC 变更防误删有状态资源"
+      ]
+    }
+  },
+  "profiles": {
+    "fast": {
+      "description": "轻量快检（小 PR <= 250 行、纯样式/局部修补、无安全/架构/旅程变更）：14-17 条高信号核心规则 + 命中的技术栈专项，预计 2-4 分钟。",
+      "allow_rules": [
+        "RV-BASE-01", "RV-BASE-03", "RV-BASE-04",
+        "RV-BIZ-01", "RV-BIZ-02",
+        "RV-REACT-01", "RV-BUG-01", "RV-BUG-03", "RV-BUG-04", "RV-TEST-01", "RV-SMELL-01", "RV-SMELL-03",
+        "RV-SEC-01", "RV-SEC-04",
+        "RV-DX-01", "RV-AI-01", "RV-DESK-01", "RV-MOB-01", "RV-DATA-01", "RV-EXT-01", "RV-INFRA-01",
+        "RV-UI-03", "RV-UI-04",
+        "RV-REL-02"
+      ],
+      "require_ux_coverage_matrix": false
+    },
+    "standard": {
+      "description": "标准 PR 并行审查：全 6 维度按精准信号激活，4 维度零等待并行，预计 5-8 分钟。",
+      "require_ux_coverage_matrix": true
+    },
+    "full": {
+      "description": "完整交付/发布门禁（delivery / release / L2+）：全量 50 规则 + 盲测 + Bombadil + 14 组 70 条 UX + 发布门禁。",
+      "require_ux_coverage_matrix": true
+    }
+  },
   "phases": [
     {
-      "id": "preflight_baseline",
+      "id": "core_parallel_review",
       "order": 1,
-      "title": "Phase 1: 工程底线与基线门禁",
-      "goal": "先锁定受测版本与工作区卫生，跑通构建、Lint 与后端优先测试，确认具备深度审查前提。",
-      "allow_parallel": true
-    },
-    {
-      "id": "dimension_reviews",
-      "order": 2,
-      "title": "Phase 2: 四大核心维度并发审查",
-      "goal": "按业务闭环、代码质量、安全与架构、界面与体验四大正交维度并发逐条审查，逐项明确优化点。",
+      "title": "Phase 1: 核心五维并发审查（基线与静态四维零等待并行，基线就绪即解锁运行时 UI）",
+      "goal": "维度 1（工程底线）与维度 2/3/4（业务、代码、安全架构）在 t=0 同步派发并发执行；维度 1 落盘后立刻解锁维度 5（界面体验与运行时走查），消除串行空等。",
       "allow_parallel": true
     },
     {
       "id": "release_gate",
-      "order": 3,
-      "title": "Phase 3: 上线准备与确定性总决",
-      "goal": "确认业务侧与技术侧上线准备、监控与回滚方案，随后执行 finalize 生成 HTML 可视化报告与机检裁决。",
+      "order": 2,
+      "title": "Phase 2: 上线准备与确定性总决",
+      "goal": "汇总前 5 维度风险与未验证项，确认业务与技术上线准备、监控与回滚方案，随后执行 finalize 生成 HTML 报告与机检裁决。",
       "allow_parallel": false
     }
   ],
   "lanes": [
     {
       "id": "engineering_baseline",
-      "phase": "preflight_baseline",
+      "phase": "core_parallel_review",
       "title": "维度 1：工程底线与验证基线（G0）",
       "dimension_question": "代码干不干净？能构建、自动化测试跑过没？",
       "owner_skill": "engineering-review-release",
@@ -92,18 +208,18 @@
     },
     {
       "id": "business_acceptance",
-      "phase": "dimension_reviews",
+      "phase": "core_parallel_review",
       "title": "维度 2：业务闭环与产品认知验收（G4 + G1 + Journey）",
       "dimension_question": "业务问题和产品旅程方向对吗？每条验收标准都有一手实测证据吗？",
       "owner_skill": "engineering-review-release",
       "gate_steps": ["G4", "G1"],
       "review_roles": ["product", "qa"],
-      "depends_on": ["engineering_baseline"],
+      "depends_on": [],
       "can_parallel": true,
       "allow_na": true,
       "never_waived": false,
       "validators": ["journey_review"],
-      "recheck_policy": "on_any_fix",
+      "recheck_policy": "on_failure_only",
       "required_in_modes": ["pr", "delivery", "release"],
       "exclude_in_modes": ["audit"],
       "trigger_signals": ["has_code_change", "is_team_delivery"],
@@ -161,19 +277,20 @@
     },
     {
       "id": "code_quality",
-      "phase": "dimension_reviews",
+      "phase": "core_parallel_review",
       "title": "维度 3：代码质量（正确性 + 坏味道 + React 体检）",
       "dimension_question": "代码有没有行为 Bug、回归风险、10 类坏味道或 React 新增隐患？",
       "owner_skill": "engineering-review-release",
       "gate_steps": ["CR"],
       "review_roles": ["code"],
-      "depends_on": ["engineering_baseline"],
+      "depends_on": [],
       "can_parallel": true,
       "allow_na": false,
       "never_waived": false,
       "requires_code_change": true,
       "validators": ["react_doctor"],
-      "recheck_policy": "on_any_fix",
+      "file_bucket": "code_files",
+      "recheck_policy": "on_file_match",
       "required_in_modes": ["pr", "delivery", "release"],
       "exclude_in_modes": ["audit"],
       "trigger_signals": ["has_code_change"],
@@ -323,19 +440,19 @@
     },
     {
       "id": "security_architecture",
-      "phase": "dimension_reviews",
+      "phase": "core_parallel_review",
       "title": "维度 4：安全合规与架构边界（Security / Arch / DX / AI）",
       "dimension_question": "有没有密钥泄露、越权漏洞、红线冲突、迁移风险或 API/AI 链路隐患？",
       "owner_skill": "engineering-review-release",
       "gate_steps": ["G0", "D"],
       "review_roles": ["security", "architecture", "dx"],
-      "depends_on": ["engineering_baseline"],
+      "depends_on": [],
       "can_parallel": true,
       "allow_na": false,
       "never_waived": true,
       "requires_code_change": true,
       "file_bucket": "security_arch_files",
-      "recheck_policy": "on_any_fix",
+      "recheck_policy": "on_file_match",
       "required_in_modes": ["pr", "delivery", "release"],
       "exclude_in_modes": ["audit"],
       "trigger_signals": [
@@ -344,6 +461,13 @@
         "has_arch_or_data_change",
         "has_dx_surface",
         "has_ai_or_automation",
+        "is_desktop_app",
+        "is_mobile_app",
+        "is_data_automation",
+        "is_ai_agent",
+        "is_cli_sdk_tool",
+        "is_browser_extension",
+        "is_infra_devops",
         "high_level"
       ],
       "na_reason_default": "纯界面截图/原型审计，无代码与系统边界变更。",
@@ -436,27 +560,72 @@
         },
         {
           "id": "RV-DX-01",
-          "group": "公开契约与 AI 链路",
+          "group": "技术栈专项检查（按项目类型精准激活）",
           "title": "公开 API / CLI / SDK 与文档体验（DX）",
-          "check": "核查首次使用路径、报错信息可行动性、向后兼容性及 README/docs/示例与当前实现一致。",
-          "trigger_signals": ["has_dx_surface"],
+          "check": "核查首次使用路径、退出码规范、报错信息可行动性、向后兼容性及 README/docs/示例与当前实现一致。",
+          "trigger_signals": ["has_dx_surface", "is_cli_sdk_tool"],
           "na_reason_default": "无公开 API/CLI/SDK 或集成文档变更。",
           "allow_na": true
         },
         {
           "id": "RV-AI-01",
-          "group": "公开契约与 AI 链路",
-          "title": "AI / OCR / CV / RPA 生产链路检查",
-          "check": "核查 prompt 版本与回滚指针、结构化输出 schema 校验、调用日志（provider/model/token/latency/error）、超时降级与 eval/replay 证据。",
-          "trigger_signals": ["has_ai_or_automation"],
-          "na_reason_default": "不涉及 AI/LLM/OCR/CV/RPA 流水线。",
+          "group": "技术栈专项检查（按项目类型精准激活）",
+          "title": "AI / LLM / Agent / OCR / CV 生产链路检查",
+          "check": "核查 prompt 版本与回滚指针、结构化输出 schema 校验、不可信输入防 Prompt Injection、工具最小权限、调用日志（provider/model/token/latency/error）、超时降级与 eval/replay 证据。",
+          "trigger_signals": ["is_ai_agent"],
+          "na_reason_default": "不涉及 AI/LLM/Agent/OCR/CV 流水线。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-DESK-01",
+          "group": "技术栈专项检查（按项目类型精准激活）",
+          "title": "桌面应用进程/IPC 安全、系统能力与更新兼容",
+          "check": "核查 Electron contextIsolation/nodeIntegration/preload 最小暴露或 Tauri command 权限白名单；跨平台文件路径与托盘/快捷键/多窗口/深浅色/休眠恢复；本地数据库迁移、离线降级及安装包签名更新回滚。",
+          "trigger_signals": ["is_desktop_app"],
+          "na_reason_default": "非桌面应用或本次未触及桌面端代码。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-MOB-01",
+          "group": "技术栈专项检查（按项目类型精准激活）",
+          "title": "移动端/小程序生命周期、弱网恢复与权限安全区",
+          "check": "核查弱网/断网、前后台切换与进程回收后的状态恢复；系统权限按需申请与拒绝兜底；刘海屏/安全区/键盘遮挡、手势冲突与旧版本 API 向后兼容。",
+          "trigger_signals": ["is_mobile_app"],
+          "na_reason_default": "非移动端/小程序项目或本次未触及移动端代码。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-DATA-01",
+          "group": "技术栈专项检查（按项目类型精准激活）",
+          "title": "数据获取、爬虫与 RPA 反脆弱、幂等与资源释放",
+          "check": "核查目标页面/接口结构漂移时显式告警失败（禁静默吐空数据伪装成功）、限流退避与 jitter（严禁绕过 CAPTCHA/访问控制）、幂等去重键与断点续传、浏览器上下文/连接池/临时文件完整释放及产出样本对账。",
+          "trigger_signals": ["is_data_automation"],
+          "na_reason_default": "非数据采集/爬虫/RPA/ETL 管道项目。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-EXT-01",
+          "group": "技术栈专项检查（按项目类型精准激活）",
+          "title": "浏览器插件权限最小化、MV3 无状态与脚本隔离",
+          "check": "核查 manifest.json 的 permissions/host_permissions 最小化（禁多余 <all_urls>）；MV3 Service Worker 休眠回收不依赖内存全局变量（状态入 chrome.storage）；Content Script DOM/CSS 隔离及跨上下文消息来源校验。",
+          "trigger_signals": ["is_browser_extension"],
+          "na_reason_default": "非浏览器插件项目或未触及扩展代码。",
+          "allow_na": true
+        },
+        {
+          "id": "RV-INFRA-01",
+          "group": "技术栈专项检查（按项目类型精准激活）",
+          "title": "容器、CI/CD 与基础设施安全及变更可回滚",
+          "check": "核查容器非 root、锁定基础镜像 tag 且无密钥落层；CI Workflow 权限最小化、Pin Action 版本与 secret 掩码；健康检查、优雅停机（SIGTERM）与 IaC 变更防误删有状态资源。",
+          "trigger_signals": ["is_infra_devops"],
+          "na_reason_default": "本次变更不涉及 Dockerfile、CI Workflow、K8s 或 IaC 配置。",
           "allow_na": true
         }
       ]
     },
     {
       "id": "ui_ux_experience",
-      "phase": "dimension_reviews",
+      "phase": "core_parallel_review",
       "title": "维度 5：界面体验与旅程走查（Blind Walkthrough + Bombadil + UI/UX 70 条）",
       "dimension_question": "不看说明用户能自己走通旅程吗？复杂交互稳不稳？70 条体验规则达标吗？",
       "owner_skill": "engineering-ui-ux-audit",

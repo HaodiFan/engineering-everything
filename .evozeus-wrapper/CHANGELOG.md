@@ -6,7 +6,21 @@ Wrapper harness migrations are recorded under `.evozeus-wrapper/docs/migrations/
 
 ## [Unreleased]
 
-- Release `v0.18.0`: moved the entries below under the version header and added `release-notes-v0.18.0.md`.
+- Release `v0.19.0`: moved the entries below under the version header and added `release-notes-v0.19.0.md`.
+
+## [v0.19.0] - 2026-11-25
+
+### Skill changes
+
+- High-Throughput Review Pipeline, Single-Shot Bundle Dispatch & 9-Domain Tech-Stack Isolation (`0.19.0`):
+  - **2-Phase Zero-Wait Parallel DAG** (`data/review_pipeline.json` schema v5): collapsed 3 phases into `core_parallel_review` + `release_gate`; Dimensions 1–4 (`engineering_baseline`, `business_acceptance`, `code_quality`, `security_architecture`) unlock concurrently at `t=0`, while Dimension 5 (`ui_ux_experience`) depends only on `engineering_baseline` for immediate runtime unlock.
+  - **3-Tier Smart Profiles (`--profile auto|fast|standard|full`)**: auto-routes small clean PRs (`<= 250` lines, `<= 8` files, no security/arch/journey/release surface) to `fast` (17 high-signal core rules + matched stack rule, skips 14-group UX matrix); `standard` for regular PRs; `full` for `delivery`/`release`/`L2+`/declared journeys.
+  - **Single-Shot Consolidated AI Batch (`--dispatch auto|bundle|parallel`)**: `fast` and `standard` default to `bundle`, stitching all ready non-blind static lanes into ONE deduplicated `bundle_batch.md` (single diff read, single `submit-batch` JSON array submission with full per-lane Python hard validation; non-UI PRs finish in 1 AI pass); `full` defaults to per-lane `parallel` subagents; physically code-free Blind Walkthrough (`ui_ux_experience.blind.md`) is strictly excluded from bundling.
+  - **Pointer-First Prompts & UX Shortcuts**: prompts default to Pointer-First reference indexes and compact submission contracts (reducing prompt size by 54%–77%, legacy inline available via `--full-prompts`); added `--ux-all-pass` / `meta.ux_coverage_preset="all_pass"` and `submit-batch` CLI subcommand.
+  - **9-Domain Project-Type Tech-Stack Isolation (`--project-type auto|...`)**: auto-detects active domains from repo manifests + diff scope (`web_ui`, `desktop_app`, `mobile_app`, `browser_extension`, `data_automation`, `backend_api`, `ai_agent`, `cli_sdk_tool`, `infra_devops`), adding 5 strictly stack-gated rules (`RV-DESK-01`, `RV-MOB-01`, `RV-DATA-01`, `RV-EXT-01`, `RV-INFRA-01`; catalog now 55 `RV-*` rules) and overlay-extensible `project_types` so unrelated stacks remain `AUTO_NA` with zero prompt noise.
+  - **Precision Signals, Stage 0 Fast-Fail & Delta Recheck**: strips monorepo prefixes (`apps/<name>/`) and ignores test files for risk signals; gates `has_journey_surface` to `diff > 120` lines / `delivery` / `release` / declared `journeys[]`; adds conflict-marker & `--draft` Stage 0 fast-fail advisories; upgrades `recheck` to exclude merge commits (`git log --no-merges`), narrow `recheck_policy`, and auto-inherit prior-round `PASS` checks in Delta mode (`--full-recheck` for full rerun).
+  - **Expanded Unit Tests**: updated and expanded `tests/test_review_runner.py` to 60 passing tests covering all new optimization, batching, delta recheck, and domain-isolation contracts.
+- Release `v0.19.0`: moved the entries above under the version header and added `release-notes-v0.19.0.md`.
 
 ## [v0.18.0] - 2026-11-24
 

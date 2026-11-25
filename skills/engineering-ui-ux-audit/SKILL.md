@@ -2,7 +2,7 @@
 name: engineering-ui-ux-audit
 description: Use when judging, reviewing or accepting a UI/UX, or finding what is wrong with a page, flow, prototype or screenshot — rule-based findings with evidence, severity, fix and re-check conditions; review only unless the user asks for changes.
 metadata:
-  version: 0.18.0
+  version: 0.19.0
 ---
 
 # Engineering UI/UX Audit / 界面评判
@@ -14,10 +14,10 @@ metadata:
 ## 何时使用
 
 - 用户要求评判、审查、验收 UI/UX，或问“这个页面哪里不好”。
-- 团队交付到了“交付前确认做对了”，且改动涉及界面：`engineering-review-release` 的脚本编排（`scripts/review_runner.py`）会在 Phase 2 把 `ui_ux_experience` 维度委托给本 Skill（在同一维度内先执行/核对 `RV-BOMB-01..03` Bombadil 状态探索，再执行 `RV-UI-01..04` 与 70 条 `UX-*`）。
+- 团队交付到了“交付前确认做对了”，且改动涉及界面：`engineering-review-release` 的脚本编排（`scripts/review_runner.py`）会在 Phase 1 内 `engineering_baseline` 落盘后立即解锁 `ui_ux_experience` 维度并委托给本 Skill（在同一维度内先执行/核对 `RV-BOMB-01..03` Bombadil 状态探索，再执行 `RV-UI-01..04` 与 70 条 `UX-*`）。
 - 改版前要先摸清现状问题。
 
-> **脚本编排协同**：作为 `engineering-review-release` 的 `ui_ux_experience` 维度被调用时，若命中旅程变更（`RV-UI-05`），先用脚本生成的物理隔离无源码盲测 Prompt（`ui_ux_experience.blind.md`）完成 Blind User Walkthrough（记录 7 项观察点），再顺序执行 `RV-BOMB-01..03` 状态探索与 `RV-UI-01..04` 走查和陌生语言检查，最后通过 `review_runner.py submit --lane ui_ux_experience` 提交结构化结果（含 `ux_coverage` 14 组 70 条统计、`journey_walkthrough`、Bombadil 状态、`material_type`、`unfamiliar_language_check` 与 `unverified_items`）。独立调用且环境支持脚本时，也可用 `review_runner.py init --mode audit --material <screenshot|prototype|runnable> [--journey]` 锁定范围、进度、证据门禁并产出可视化 `report.html`（详见 `references/review-pipeline.md`）。
+> **脚本编排协同**：作为 `engineering-review-release` 的 `ui_ux_experience` 维度被调用时，若命中旅程变更（`RV-UI-05`），先用脚本生成的物理隔离无源码盲测 Prompt（`ui_ux_experience.blind.md`）完成 Blind User Walkthrough（记录 7 项观察点），再顺序执行 `RV-BOMB-01..03` 状态探索与 `RV-UI-01..04` 走查和陌生语言检查，最后通过 `review_runner.py submit --lane ui_ux_experience` 提交结构化结果（`standard/full` 档须交 `ux_coverage` 14 组 70 条统计——全通可用 `--ux-all-pass` 或 `meta.ux_coverage_preset="all_pass"` 一键展开；`fast` 档免交 14 组矩阵；同时附 `journey_walkthrough`、Bombadil 状态、`material_type`、`unfamiliar_language_check` 与 `unverified_items`）。独立调用且环境支持脚本时，也可用 `review_runner.py init --mode audit --material <screenshot|prototype|runnable> [--journey]` 锁定范围、进度、证据门禁并产出可视化 `report.html`（详见 `references/review-pipeline.md`）。
 
 ## 执行步骤
 

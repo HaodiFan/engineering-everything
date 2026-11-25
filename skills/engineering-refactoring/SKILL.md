@@ -2,7 +2,7 @@
 name: engineering-refactoring
 description: Use when refactoring, cleaning up, modularizing, renaming, reducing technical debt, or preserving behavior while improving structure.
 metadata:
-  version: 0.18.0
+  version: 0.19.0
 ---
 
 # Engineering Refactoring / 重构治理

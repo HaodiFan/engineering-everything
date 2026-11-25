@@ -1,6 +1,6 @@
-# Review 逐条方法论规则目录（6 大维度 / 50 条 RV-*）
+# Review 逐条方法论规则目录（6 大维度 / 55 条 RV-* · 9 类领域技术栈包）
 
-本文件把开发后 Review 聚类为 **3 个执行阶段、6 个业务可读的核心维度（MECE）、50 条带稳定编号的原子规则（`RV-*`）**（含 L4/L5 产品认知与用户旅程规则 `RV-BIZ-05` / `RV-UI-05`，详见 `user-journey.md`；UI 细则另接 `ui-ux-rules.md` 的 14 组 70 条 `UX-*` 结构化覆盖）。与 `data/review_pipeline.json` 保持同一编号，由 `scripts/review_runner.py` 逐条强制核验，并在 `finalize` 时自动输出按维度展示优化项与旅程对比的 **HTML 可视化报告（`report.html`）**。
+本文件把开发后 Review 聚类为 **2 个执行阶段（零等待并发 / 单批次合批）、6 个业务可读的核心维度（MECE）、55 条带稳定编号的原子规则（`RV-*`：50 条通用核心 + 5 条按领域技术栈按需挂载专项 `RV-DESK-01` / `RV-MOB-01` / `RV-DATA-01` / `RV-EXT-01` / `RV-INFRA-01`）**（含 L4/L5 产品认知与用户旅程规则 `RV-BIZ-05` / `RV-UI-05`，详见 `user-journey.md`；UI 细则另接 `ui-ux-rules.md` 的 14 组 70 条 `UX-*` 结构化覆盖）。核心原则：**不涉及的领域技术栈自动标 `AUTO_NA`、不进 Prompt、不耗 Token**，支持 9 类领域技术栈自动分流（`web_ui` / `desktop_app` / `mobile_app` / `browser_extension` / `data_automation` / `backend_api` / `ai_agent` / `cli_sdk_tool` / `infra_devops`）与 `fast` / `standard` / `full` 三档智能路由。
 
 随时查看生效目录（含私有/项目/CLI 叠加配置）：
 
@@ -10,9 +10,9 @@ python3 <源仓库>/scripts/review_runner.py catalog --target <项目目录>
 
 ---
 
-## Phase 1：工程底线与基线门禁
+## Phase 1：核心并发审查（维度 1–4 零等待并发，维度 5 在维度 1 落盘后即时解锁）
 
-### 维度 1：`engineering_baseline` — 工程底线与验证基线（5 条，有代码必跑，不可禁用）
+### 维度 1：`engineering_baseline` — 工程底线与验证基线（5 条，t=0 启动，有代码必跑，不可禁用）
 
 1. **`RV-BASE-01` Diff 与工作区卫生**（不可 N/A）— 跑 `git diff --check`；无冲突标记、无无关格式化噪音、无构建/runtime 产物入仓、未擅自改动用户脏文件。
 2. **`RV-BASE-02` 变更规模与单一主题（Change Size）**（不可 N/A）— 核对 diff 档位（300–500 解释凝聚性；500–1000 默认拆分或写明理由；>1000 须拆分除非批准的机械迁移），未混入无关重构/格式化/升级。
@@ -20,11 +20,7 @@ python3 <源仓库>/scripts/review_runner.py catalog --target <项目目录>
 4. **`RV-BASE-04` 后端优先自动化测试**（不可 N/A）— 按后端/API/service/unit/integration/contract/migration 优先顺序跑受影响测试集，记录通过/失败/跳过数；无自动化时记缺口与人工验收步骤。
 5. **`RV-BASE-05` 新依赖与外部事实溯源（Source-Driven）**（未涉及可 N/A）— 新增/升级库、外部 API、框架或平台规则有锁定版本、官方文档或 ADR 依据，不凭记忆编造。
 
----
-
-## Phase 2：四大核心维度并发审查（4 个维度全部可并发）
-
-### 维度 2：`business_acceptance` — 业务闭环与产品认知验收（5 条，G4 + G1 + Journey）
+### 维度 2：`business_acceptance` — 业务闭环与产品认知验收（5 条，t=0 并发，G4 + G1 + Journey）
 
 1. **`RV-BIZ-01` 业务问题解决度（G4）**（不可 N/A）— 对照需求卡/spec 的“帮谁、什么场景、做成了是什么样子”，确认核心业务闭环已达成、范围与非目标未漂移。
 2. **`RV-BIZ-02` 验收标准逐条对应一手证据（G1）**（不可 N/A）— 每条 AC 映射到本次 commit 的实测测试、数据核对、fixture/replay 或真实演示，不用假数据/截图/开发自述冒充。
@@ -58,7 +54,7 @@ python3 <源仓库>/scripts/review_runner.py catalog --target <项目目录>
 17. **`RV-SMELL-09` 全局可变状态与无价值抽象（Global Mutable State / Middle Man / Speculative Generality）** — 共享可变单例破坏测试/并发隔离，或仅转发/过度预留抽象 → `Inject Dependency / Inline / Collapse Abstraction`。
 18. **`RV-SMELL-10` 注释补丁味（Comment-as-Patch）** — 用注释解释晦涩绕路而非提炼概念 → `Extract Concept / Rename`（注释只留 why）。
 
-### 维度 4：`security_architecture` — 安全合规与架构边界（11 条，密钥/日志必查，其余按子信号精准激活）
+### 维度 4：`security_architecture` — 安全合规与架构边界（14 条，密钥/日志必查，其余按子信号与项目技术栈精准激活）
 
 #### 子组 A：安全与脱敏（5 条）
 1. **`RV-SEC-01` 密钥、凭据与硬编码检查**（有代码必查，不可 N/A）— 禁真实 secret/token/密码/私钥入仓；`.env.example` 仅留空/假值；开发 mock 默认关闭；区分配置化权限列表与禁止的生产硬编码凭据。
@@ -73,9 +69,14 @@ python3 <源仓库>/scripts/review_runner.py catalog --target <项目目录>
 8. **`RV-ARCH-03` 数据迁移与运行时存储边界** — 空库升级、存量升级、downgrade 或前向修复预案；runtime data 不入仓。
 9. **`RV-ARCH-04` 复杂设计验证复核（D）**（L2+）— 涉并发/分布式/多步状态机/权限时，确认 TLA+/P/状态表结论仍成立且反例已转回归测试。
 
-#### 子组 C：公开契约与 AI 链路（2 条，按 DX / AI 信号激活）
-10. **`RV-DX-01` 公开 API / CLI / SDK 与文档体验（DX）** — 首次使用路径清晰、错误信息可行动、向后兼容、README 与示例同步。
-11. **`RV-AI-01` AI / OCR / CV / RPA 生产链路检查** — prompt 版本与回滚、结构化输出 schema 校验、调用观测、超时降级与 eval/replay 证据。
+#### 子组 C：领域技术栈专项检查（7 条，按 9 类项目技术栈信号按需挂载；不涉及则 AUTO_NA 零干扰）
+10. **`RV-DX-01` 公开 API / CLI / SDK 与文档体验（`cli_sdk_tool` / DX）** — 首次使用路径清晰、退出码规范、错误信息可行动、向后兼容、README 与示例同步。
+11. **`RV-AI-01` AI / LLM / Agent / OCR / CV 生产链路（`ai_agent`）** — prompt 版本与回滚、结构化输出 schema 校验、防 Prompt Injection、工具最小权限、调用观测、超时降级与 eval/replay 证据。
+12. **`RV-DESK-01` 桌面应用进程/IPC 安全、系统能力与更新兼容（`desktop_app`）** — Electron `contextIsolation`/`preload` 或 Tauri command 权限白名单、跨平台路径与托盘/快捷键/休眠恢复、本地 DB 迁移与签名更新回滚。
+13. **`RV-MOB-01` 移动端/小程序生命周期、弱网恢复与安全区（`mobile_app`）** — 弱网/断网与前后台进程恢复、系统权限拒绝兜底、安全区/键盘遮挡与旧版本兼容。
+14. **`RV-DATA-01` 数据获取、爬虫与 RPA 反脆弱、幂等与资源释放（`data_automation`）** — DOM/接口漂移显式告警（禁静默吐空数据）、限流退避与 jitter、严禁绕过 CAPTCHA/访问控制、幂等去重与断点续传、浏览器/连接句柄释放。
+15. **`RV-EXT-01` 浏览器插件权限最小化、MV3 无状态与脚本隔离（`browser_extension`）** — `permissions`/`host_permissions` 最小化、MV3 Service Worker 休眠不依赖内存全局变量、Content Script DOM/CSS 隔离与消息校验。
+16. **`RV-INFRA-01` 容器、CI/CD 与基础设施安全及可回滚（`infra_devops`）** — 容器非 root/锁定版本、CI 最小权限与 secret 掩码、健康检查/优雅停机、IaC 变更防误删有状态资源。
 
 ### 维度 5：`ui_ux_experience` — 界面体验与旅程走查（8 条门禁 + 14 组 70 条 `UX-*`，仅涉及 UI 时触发）
 
@@ -95,7 +96,7 @@ python3 <源仓库>/scripts/review_runner.py catalog --target <项目目录>
 
 ---
 
-## Phase 3：上线准备与确定性总决
+## Phase 2：上线准备与确定性总决
 
 ### 维度 6：`release_readiness` — 上线准备与发布门禁（3 条，R / Release）
 

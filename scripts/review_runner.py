@@ -21,6 +21,7 @@ import argparse
 import copy
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import re
@@ -38,7 +39,19 @@ CONFIG_PATH = EE_ROOT / "data" / "review_pipeline.json"
 REFERENCES_DIR = EE_ROOT / "references"
 
 VALID_MODES = ("pr", "delivery", "release", "audit")
+VALID_PROFILES = ("auto", "fast", "standard", "full")
+VALID_DISPATCH_MODES = ("auto", "bundle", "parallel")
+VALID_PROJECT_TYPES = (
+    "auto", "web_ui", "desktop_app", "mobile_app", "data_automation",
+    "backend_api", "ai_agent", "cli_sdk_tool", "browser_extension", "infra_devops",
+)
 VALID_LEVELS = ("L0", "L1", "L2", "L3")
+
+
+def resolve_dispatch_mode(dispatch_arg: str | None, profile: str) -> str:
+    if dispatch_arg in ("bundle", "parallel"):
+        return dispatch_arg
+    return "bundle" if profile in ("fast", "standard") else "parallel"
 VALID_MATERIALS = ("auto", "code", "runnable", "prototype", "screenshot", "video")
 VALID_LANE_STATUSES = ("PASS", "FAIL", "BLOCKED", "N/A")
 VALID_SEVERITIES = ("P0", "P1", "P2", "P3", "blocking", "major", "minor", "suggestion")
@@ -91,6 +104,8 @@ VALID_OBSERVATION_STATUSES = ("PASS", "FAIL", "FRICTION", "UNVERIFIED", "N/A")
 
 STYLE_ONLY_EXTENSIONS = {".css", ".scss", ".sass", ".less"}
 COPY_ONLY_TOKENS = ("locales/", "i18n/", "/copy.", "copy.ts", "copy.json", "strings.", ".po", ".pot")
+TEST_PATH_RE = re.compile(r"(?:^|/)(?:tests?|__tests__|specs?|e2e)/|\.(?:test|spec)\.[a-z0-9]+$", re.IGNORECASE)
+MONOREPO_PREFIX_RE = re.compile(r"^(?:apps|packages|services|modules|workspaces)/[^/]+/", re.IGNORECASE)
 UI_EXTENSIONS = {".tsx", ".jsx", ".vue", ".svelte", ".css", ".scss", ".sass", ".less", ".html", ".astro"}
 CODE_EXTENSIONS = UI_EXTENSIONS | {
     ".py", ".ts", ".js", ".mjs", ".cjs", ".go", ".rs", ".java", ".kt", ".swift", ".rb", ".php", ".cs", ".cpp", ".c", ".h", ".sql", ".sh",
@@ -112,10 +127,44 @@ DEFAULT_SIGNAL_PATTERNS: dict[str, list[str]] = {
     "ui_interactive": ["form", "submit", "modal", "dialog", "wizard", "step", "checkout", "approval", "auth", "login", "role", "permission", "retry", "async", "query", "mutation", "store", "state"],
     "journey_surface": [
         "pages/", "views/", "screens/", "routes/", "router", "navigation", "navbar", "sidebar", "layout",
-        "workspace", "workbench", "dashboard", "home", "inbox", "feed", "tabs", "wizard", "onboarding",
-        "flow", "workflow", "checkout", "approval", "drawer", "modal", "task", "notification", "decision",
+        "workspace", "dashboard", "home", "inbox", "feed", "tabs", "wizard", "onboarding",
+        "flow", "workflow", "checkout", "approval", "drawer", "modal", "notification", "decision",
     ],
 }
+
+
+def strip_monorepo_prefix(path: str) -> str:
+    """Strip top-level app/package name (e.g. apps/workbench/...) so repo naming never false-triggers signals."""
+    return MONOREPO_PREFIX_RE.sub("", path)
+
+
+def is_test_file(path: str) -> bool:
+    return bool(TEST_PATH_RE.search(path))
+
+
+def expand_ux_coverage_preset(meta: dict[str, Any]) -> None:
+    """Allow concise `meta.ux_coverage_preset = 'all_pass'` + optional `ux_overrides` instead of hand-typing 14 zero-filled groups."""
+    if not isinstance(meta, dict):
+        return
+    if str(meta.get("ux_coverage_preset", "")).strip() != "all_pass" or "ux_coverage" in meta:
+        return
+    overrides = meta.get("ux_overrides") if isinstance(meta.get("ux_overrides"), dict) else {}
+    cov: dict[str, Any] = {}
+    for prefix, _, total in UX_GROUPS:
+        ov = overrides.get(prefix) if isinstance(overrides.get(prefix), dict) else {}
+        f_ids = list(ov.get("failed_ids") or [])
+        u_ids = list(ov.get("unverified_ids") or [])
+        na_cnt = int(ov.get("na", 0))
+        passed_cnt = max(0, total - len(f_ids) - len(u_ids) - na_cnt)
+        cov[prefix] = {
+            "passed": passed_cnt,
+            "failed": len(f_ids),
+            "na": na_cnt,
+            "unverified": len(u_ids),
+            "failed_ids": f_ids,
+            "unverified_ids": u_ids,
+        }
+    meta["ux_coverage"] = cov
 SECRET_LINE_REGEXES = [
     ("private-key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
     ("aws-access-key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
@@ -420,7 +469,19 @@ def merge_effective_config(
                 target_lane.setdefault("trigger_path_patterns", [])
                 target_lane["trigger_path_patterns"].extend(str(x).lower() for x in ext["trigger_path_patterns"])
 
-        # 5. force_require_lanes / disable_lanes / disable_rules
+        # 5. force_require_lanes / disable_lanes / disable_rules / project_types
+        for pt_id, pt_obj in (ov.get("project_types") or {}).items():
+            if isinstance(pt_obj, dict):
+                cfg.setdefault("project_types", {})
+                base_pt = copy.deepcopy(cfg["project_types"].get(pt_id) or {})
+                merged_focus = list(base_pt.get("focus_points") or [])
+                for fp in pt_obj.get("focus_points") or []:
+                    if fp not in merged_focus:
+                        merged_focus.append(str(fp))
+                base_pt.update(pt_obj)
+                if merged_focus:
+                    base_pt["focus_points"] = merged_focus
+                cfg["project_types"][pt_id] = base_pt
         for lid in ov.get("force_require_lanes") or []:
             if lid not in lanes_by_id:
                 raise ValueError(f"overlay {ov_tag}: force_require_lanes references unknown lane '{lid}'")
@@ -563,6 +624,7 @@ def parse_git_state(git_root: Path, base_ref: str | None, explicit_files: list[s
     dirty_files = [line for line in run_git(git_root, ["status", "--short"]).stdout.splitlines() if line.strip()]
     diff_check_proc = run_git(git_root, ["diff", "--check"])
     diff_check_issues = [line for line in diff_check_proc.stdout.splitlines() if line.strip()][:20]
+    has_merge_conflicts = any("conflict marker" in line.lower() for line in diff_check_issues)
 
     secret_clues: list[dict[str, str]] = []
     current_file = ""
@@ -605,7 +667,12 @@ def parse_git_state(git_root: Path, base_ref: str | None, explicit_files: list[s
         "changed_files": changed_files,
         "dirty_files": dirty_files,
         "diff_stats": {"files_changed": len(changed_files), "added": added_lines, "deleted": deleted_lines, "total": total_diff, "size_tier": size_tier},
-        "pre_probes": {"git_diff_check_ok": diff_check_proc.returncode == 0, "git_diff_check_issues": diff_check_issues, "secret_clues": secret_clues},
+        "pre_probes": {
+            "git_diff_check_ok": diff_check_proc.returncode == 0,
+            "git_diff_check_issues": diff_check_issues,
+            "has_merge_conflicts": has_merge_conflicts,
+            "secret_clues": secret_clues,
+        },
     }
 
 
@@ -631,6 +698,144 @@ def load_intent_card_context(intent_card: str | None) -> dict[str, Any]:
     }
 
 
+def detect_project_types(
+    target: Path,
+    changed: list[str],
+    prod_files: list[str],
+    has_ui_files: bool,
+    has_ui_change: bool,
+    explicit_types: list[str] | None = None,
+) -> dict[str, Any]:
+    """Detect repo-level and diff-active project archetypes (multi-label)."""
+    cleaned_explicit = [t for t in (explicit_types or []) if t and t != "auto" and t in VALID_PROJECT_TYPES]
+    dep_blob_parts: list[str] = []
+    repo_types: list[str] = []
+    if target.exists() and target.is_dir():
+        for fname in ("package.json", "pyproject.toml", "requirements.txt", "Cargo.toml", "go.mod", "pubspec.yaml"):
+            p = target / fname
+            if p.is_file():
+                try:
+                    dep_blob_parts.append(p.read_text(encoding="utf-8", errors="replace")[:32000].lower())
+                except OSError:
+                    pass
+        for sub in ("apps", "packages", "services", "src-tauri"):
+            sd = target / sub
+            if sd.is_dir():
+                for child in sorted(sd.glob("*/package.json"))[:6]:
+                    try:
+                        dep_blob_parts.append(child.read_text(encoding="utf-8", errors="replace")[:16000].lower())
+                    except OSError:
+                        pass
+                if (sd / "Cargo.toml").is_file():
+                    try:
+                        dep_blob_parts.append((sd / "Cargo.toml").read_text(encoding="utf-8", errors="replace")[:16000].lower())
+                    except OSError:
+                        pass
+
+    dep_blob = "\n".join(dep_blob_parts)
+    has_src_tauri = (target / "src-tauri").is_dir() if target.is_dir() else False
+    has_wails = (target / "wails.json").is_file() if target.is_dir() else False
+    has_xcode = bool(list(target.glob("*.xcodeproj"))[:1]) if target.is_dir() else False
+    has_mobile_manifest = (
+        any((target / p).exists() for p in ("pubspec.yaml", "ios/Podfile", "android/app/src/main/AndroidManifest.xml", "miniprogram/app.json"))
+        if target.is_dir() else False
+    )
+    has_skills_dir = (target / "skills").is_dir() and bool(list((target / "skills").glob("*/SKILL.md"))[:1]) if target.is_dir() else False
+    has_ext_manifest = False
+    if target.is_dir():
+        for mf in (target / "manifest.json", target / "public" / "manifest.json", target / "extension" / "manifest.json"):
+            if mf.is_file():
+                try:
+                    mtxt = mf.read_text(encoding="utf-8", errors="replace")[:8000]
+                    if '"manifest_version"' in mtxt:
+                        has_ext_manifest = True
+                        break
+                except OSError:
+                    pass
+
+    if has_src_tauri or has_wails or any(k in dep_blob for k in ('"electron"', '"@tauri-apps/', "tauri", "pyqt", "pyside", "wxpython")):
+        repo_types.append("desktop_app")
+    if has_mobile_manifest or any(k in dep_blob for k in ('"react-native"', '"expo"', "flutter")):
+        repo_types.append("mobile_app")
+    if has_ext_manifest:
+        repo_types.append("browser_extension")
+    if any(k in dep_blob for k in ("scrapy", "drissionpage", "selenium", "beautifulsoup", "airflow", "crawlee", "puppeteer")):
+        repo_types.append("data_automation")
+    if any(k in dep_blob for k in ("openai", "anthropic", "google-genai", "langchain", "llama-index", "paddleocr", "ultralytics", '"@modelcontextprotocol/')):
+        repo_types.append("ai_agent")
+    if any(k in dep_blob for k in ('"react"', '"next"', '"vue"', '"svelte"', '"vite"', '"tailwindcss"')):
+        repo_types.append("web_ui")
+    if any(k in dep_blob for k in ("fastapi", "django", "flask", '"express"', '"@nestjs/', "sqlalchemy", "alembic", "prisma", "gin-gonic", "spring-boot")):
+        repo_types.append("backend_api")
+    if has_skills_dir or '"bin"' in dep_blob or "[project.scripts]" in dep_blob or "[[bin]]" in dep_blob:
+        repo_types.append("cli_sdk_tool")
+    if has_xcode and "mobile_app" not in repo_types and "desktop_app" not in repo_types:
+        repo_types.append("desktop_app")
+
+    if cleaned_explicit:
+        active = list(dict.fromkeys(cleaned_explicit))
+        return {"active": active, "repo_detected": repo_types, "source": "cli"}
+
+    scoped_prod = [strip_monorepo_prefix(f).lower() for f in prod_files]
+    all_lower = [f.lower() for f in changed]
+    active: list[str] = []
+
+    def _hit(tokens: tuple[str, ...], pool: list[str] | None = None) -> bool:
+        src = scoped_prod if pool is None else pool
+        return any(any(tok in p for tok in tokens) for p in src)
+
+    if _hit(("electron", "preload", "src-tauri/", "tauri", "wails", "pyqt", "pyside", ".xcodeproj", "tray", "ipc_main", "main_process"), all_lower) or (
+        "desktop_app" in repo_types and (not changed or has_ui_change or _hit(("desktop/", "main/", "renderer/", "native/"), all_lower))
+    ):
+        active.append("desktop_app")
+
+    if _hit(("ios/", "android/", "miniprogram/", "react-native", ".dart", ".kt", "podfile", "androidmanifest.xml"), all_lower) or (
+        "mobile_app" in repo_types and (not changed or has_ui_change)
+    ):
+        active.append("mobile_app")
+
+    if _hit(("manifest.json", "content_script", "content-script", "background.ts", "background.js", "service-worker", "sidepanel", "popup/"), all_lower) and (
+        has_ext_manifest or _hit(("content_script", "content-script", "sidepanel", "extension/"), all_lower)
+    ):
+        active.append("browser_extension")
+
+    if _hit(("crawl", "scrape", "spider", "rpa", "etl", "ingest", "collector", "fetcher", "drission", "scrapy", "selenium", "puppeteer", "playwright", "airflow", "pipeline_dag")) or (
+        "data_automation" in repo_types and bool(prod_files) and any(Path(f).suffix.lower() in {".py", ".ts", ".js", ".go"} for f in prod_files)
+    ):
+        active.append("data_automation")
+
+    if _hit(("prompt", "llm", "agent", "rag", "eval", "mcp", "ocr", "yolo", "vision", "openai", "anthropic", "gemini")) or (
+        "ai_agent" in repo_types and bool(prod_files) and any(Path(f).suffix.lower() in {".py", ".ts", ".js", ".go"} for f in prod_files)
+    ):
+        active.append("ai_agent")
+
+    if has_ui_change and (
+        "web_ui" in repo_types
+        or (has_ui_files and "mobile_app" not in active)
+        or ("desktop_app" not in active and "mobile_app" not in active and "browser_extension" not in active)
+    ):
+        active.append("web_ui")
+
+    if _hit(("api/", "routes/", "router", "controllers/", "services/", "models", "schema", "migrations/", "alembic", "prisma", "graphql", "grpc", "server/", "backend/", ".sql")) or (
+        "backend_api" in repo_types and any(Path(f).suffix.lower() in {".py", ".go", ".java", ".rs", ".ts", ".js", ".sql"} and Path(f).suffix.lower() not in UI_EXTENSIONS for f in prod_files)
+    ):
+        active.append("backend_api")
+
+    if _hit(("cli", "bin/", "scripts/", "sdk/", "skills/", "skill.md"), all_lower) or (
+        "cli_sdk_tool" in repo_types and not has_ui_files and bool(changed)
+    ):
+        active.append("cli_sdk_tool")
+
+    if _hit(("dockerfile", "docker-compose", ".github/workflows/", "helm/", "k8s/", "kubernetes/", "terraform/", ".tf", "ansible/"), all_lower):
+        active.append("infra_devops")
+
+    if not active and repo_types:
+        active = list(repo_types[:2])
+    if not active and changed:
+        active = ["web_ui"] if has_ui_change else ["backend_api"]
+    return {"active": list(dict.fromkeys(active)), "repo_detected": repo_types, "source": "auto"}
+
+
 def detect_repo_and_signals(
     target: Path,
     git_info: dict[str, Any],
@@ -642,9 +847,13 @@ def detect_repo_and_signals(
     has_release_flag: bool,
     intent_card: str | None,
     journey_override: bool | None = None,
+    profile_arg: str = "auto",
+    project_type_args: list[str] | None = None,
 ) -> dict[str, Any]:
     changed = git_info.get("changed_files", [])
     lower_files = [f.lower() for f in changed]
+    prod_files = [f for f in changed if not is_test_file(f)]
+    scoped_prod_lower = [strip_monorepo_prefix(f).lower() for f in prod_files]
     sp = effective_cfg["signal_patterns"]
     intent_ctx = load_intent_card_context(intent_card)
     intent_journeys = intent_ctx["journeys"]
@@ -652,9 +861,10 @@ def detect_repo_and_signals(
     def any_ext(exts: set[str]) -> bool:
         return any(Path(f).suffix.lower() in exts for f in changed)
 
-    def any_pat(bucket: str) -> bool:
+    def any_pat(bucket: str, *, prod_only: bool = True) -> bool:
         pats = sp.get(bucket, [])
-        return any(any(pat in lf for pat in pats) for lf in lower_files)
+        pool = scoped_prod_lower if prod_only else lower_files
+        return any(any(pat in lf for pat in pats) for lf in pool)
 
     is_react_repo = False
     react_packages: list[str] = []
@@ -713,17 +923,24 @@ def detect_repo_and_signals(
     else:
         has_complex_ui_flow = False
 
-    has_security_surface = any_pat("security")
+    has_security_surface = any_pat("security", prod_only=True)
+    has_arch_or_data = any_pat("arch_data", prod_only=True)
+    has_release_scope = has_release_flag or mode == "release" or any_pat("release", prod_only=False)
+    diff_total = int((git_info.get("diff_stats") or {}).get("total") or 0)
     non_trivial_ui_files = [
-        f for f in changed
+        f for f in prod_files
         if (Path(f).suffix.lower() in UI_EXTENSIONS and Path(f).suffix.lower() not in STYLE_ONLY_EXTENSIONS)
         and not any(tok in f.lower() for tok in COPY_ONLY_TOKENS)
     ]
+    non_trivial_ui_scoped = [strip_monorepo_prefix(f).lower() for f in non_trivial_ui_files]
+    journey_pats = sp.get("journey_surface", []) + sp.get("ui_interactive", [])
+    ui_hits_journey_pat = any(any(pat in lf for pat in journey_pats) for lf in non_trivial_ui_scoped)
+
     if journey_override is not None:
         has_journey_surface = journey_override
     elif intent_journeys:
         has_journey_surface = True
-    elif non_trivial_ui_files and (any_pat("journey_surface") or any_pat("ui_interactive")):
+    elif non_trivial_ui_files and ui_hits_journey_pat and (diff_total > 120 or mode in ("delivery", "release")):
         has_journey_surface = True
     else:
         has_journey_surface = False
@@ -733,6 +950,27 @@ def detect_repo_and_signals(
     if has_security_surface and level == "L0":
         effective_level = "L1"
         level_bump_reason = "涉及安全/权限/数据相关改动，按 delivery-gates.md 不得按 L0 处理，自动升至 L1。"
+
+    if profile_arg != "auto":
+        effective_profile = profile_arg
+        profile_reason = f"CLI 显式指定 --profile {profile_arg}"
+    elif mode in ("delivery", "release") or effective_level in ("L2", "L3") or bool(intent_journeys):
+        effective_profile = "full"
+        profile_reason = "团队交付 / 发布 / L2+ / 声明用户旅程契约，自动启用 full 完整档位"
+    elif (
+        mode == "pr"
+        and effective_level in ("L0", "L1")
+        and 0 < diff_total <= 250
+        and not has_security_surface
+        and not has_arch_or_data
+        and not has_journey_surface
+        and not has_release_scope
+    ):
+        effective_profile = "fast"
+        profile_reason = f"小体量 PR（{diff_total} 行 <= 250）且无安全/架构/旅程/发布面，自动启用 fast 轻量快检档位"
+    else:
+        effective_profile = "standard"
+        profile_reason = "常规 PR 并行审查，自动启用 standard 标准档位"
 
     governance_docs: list[str] = []
     if target.exists() and target.is_dir():
@@ -776,9 +1014,25 @@ def detect_repo_and_signals(
                     _add_design_doc("project", md)
         _add_design_doc("project", target / "DESIGN.md")
 
+    pt_info = detect_project_types(
+        target=target,
+        changed=changed,
+        prod_files=prod_files,
+        has_ui_files=has_ui_files,
+        has_ui_change=has_ui_change,
+        explicit_types=project_type_args,
+    )
+    active_pt = pt_info["active"]
+    if ("desktop_app" in active_pt or "mobile_app" in active_pt) and mode == "audit":
+        has_ui_change = True
+
     return {
         "effective_level": effective_level,
         "level_bump_reason": level_bump_reason,
+        "profile": effective_profile,
+        "profile_reason": profile_reason,
+        "project_types": active_pt,
+        "project_types_meta": pt_info,
         "material": resolved_material,
         "journeys": intent_journeys,
         "intent_context": intent_ctx,
@@ -788,11 +1042,20 @@ def detect_repo_and_signals(
             "has_ui_change": has_ui_change,
             "has_complex_ui_flow": has_complex_ui_flow,
             "has_journey_surface": has_journey_surface,
-            "has_arch_or_data_change": any_pat("arch_data"),
+            "has_arch_or_data_change": has_arch_or_data,
             "has_security_surface": has_security_surface,
-            "has_dx_surface": any_pat("dx"),
-            "has_ai_or_automation": any_pat("ai_automation"),
-            "has_release_scope": has_release_flag or mode == "release" or any_pat("release"),
+            "has_dx_surface": any_pat("dx", prod_only=False) or ("cli_sdk_tool" in active_pt),
+            "has_ai_or_automation": any_pat("ai_automation", prod_only=True) or ("ai_agent" in active_pt) or ("data_automation" in active_pt),
+            "is_web_ui": "web_ui" in active_pt,
+            "is_desktop_app": "desktop_app" in active_pt,
+            "is_mobile_app": "mobile_app" in active_pt,
+            "is_data_automation": "data_automation" in active_pt,
+            "is_backend_api": "backend_api" in active_pt,
+            "is_ai_agent": "ai_agent" in active_pt,
+            "is_cli_sdk_tool": "cli_sdk_tool" in active_pt,
+            "is_browser_extension": "browser_extension" in active_pt,
+            "is_infra_devops": "infra_devops" in active_pt,
+            "has_release_scope": has_release_scope,
             "is_team_delivery": mode in ("delivery", "release") or bool(intent_card),
             "high_level": effective_level in ("L2", "L3"),
         },
@@ -805,11 +1068,12 @@ def detect_repo_and_signals(
             "bombadil_cli_on_path": shutil.which("bombadil"),
         },
         "file_buckets": {
+            "code_files": [f for f in changed if Path(f).suffix.lower() in CODE_EXTENSIONS],
             "react_files": [f for f in changed if Path(f).suffix.lower() in {".tsx", ".jsx", ".ts", ".js"}],
-            "ui_files": [f for f in changed if Path(f).suffix.lower() in UI_EXTENSIONS or any(t in f.lower() for t in ("components/", "pages/", "views/", "ui/", "design.md"))],
-            "security_files": [f for f in changed if any(p in f.lower() for p in sp.get("security", []))],
-            "arch_dx_ai_files": [f for f in changed if any(p in f.lower() for p in sp.get("arch_data", []) + sp.get("dx", []) + sp.get("ai_automation", []))],
-            "security_arch_files": [f for f in changed if any(p in f.lower() for p in sp.get("security", []) + sp.get("arch_data", []) + sp.get("dx", []) + sp.get("ai_automation", []))],
+            "ui_files": [f for f in changed if Path(f).suffix.lower() in UI_EXTENSIONS or any(t in strip_monorepo_prefix(f).lower() for t in ("components/", "pages/", "views/", "ui/", "design.md"))],
+            "security_files": [f for f in prod_files if any(p in strip_monorepo_prefix(f).lower() for p in sp.get("security", []))],
+            "arch_dx_ai_files": [f for f in prod_files if any(p in strip_monorepo_prefix(f).lower() for p in sp.get("arch_data", []) + sp.get("dx", []) + sp.get("ai_automation", []))],
+            "security_arch_files": [f for f in prod_files if any(p in strip_monorepo_prefix(f).lower() for p in sp.get("security", []) + sp.get("arch_data", []) + sp.get("dx", []) + sp.get("ai_automation", []))],
             "release_files": [f for f in changed if any(p in f.lower() for p in sp.get("release", []))],
         },
     }
@@ -820,6 +1084,8 @@ def resolve_lane_rules(
     signals: dict[str, Any],
     lane_required: bool,
     disabled_rules: dict[str, str],
+    profile_allow_rules: set[str] | None = None,
+    profile_name: str = "standard",
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     active: list[dict[str, Any]] = []
     auto_na: list[dict[str, Any]] = []
@@ -831,6 +1097,9 @@ def resolve_lane_rules(
         if not lane_required:
             auto_na.append({**rule, "auto_na_reason": lane_cfg.get("na_reason_default", "模块未触发")})
             continue
+        if profile_allow_rules is not None and rule.get("source", "base") == "base" and rid not in profile_allow_rules:
+            auto_na.append({**rule, "auto_na_reason": f"{profile_name} 轻量档位跳过（高信号核心规则已覆盖）"})
+            continue
         r_signals = rule.get("trigger_signals")
         if not r_signals or any(signals.get(sig) is True for sig in r_signals):
             active.append(rule)
@@ -839,12 +1108,21 @@ def resolve_lane_rules(
     return active, auto_na
 
 
-def build_plan(effective_cfg: dict[str, Any], mode: str, signals: dict[str, Any], changed_files: list[str]) -> dict[str, Any]:
+def build_plan(
+    effective_cfg: dict[str, Any],
+    mode: str,
+    signals: dict[str, Any],
+    changed_files: list[str],
+    profile: str = "standard",
+) -> dict[str, Any]:
     """Declaratively build the execution plan from effective_cfg (zero hardcoded lane names)."""
     lower_files = [f.lower() for f in changed_files]
     disabled_lanes = effective_cfg.get("disabled_lanes", {})
     disabled_rules = effective_cfg.get("disabled_rules", {})
     forced_lanes = set(effective_cfg.get("force_require_lanes", []))
+    prof_cfg = (effective_cfg.get("profiles") or {}).get(profile) or {}
+    raw_allow = prof_cfg.get("allow_rules")
+    profile_allow_rules = set(raw_allow) if isinstance(raw_allow, list) and raw_allow else None
 
     lane_copy_keys = (
         "id", "phase", "title", "dimension_question", "owner_skill", "gate_steps", "review_roles",
@@ -883,7 +1161,10 @@ def build_plan(effective_cfg: dict[str, Any], mode: str, signals: dict[str, Any]
                     matched_reasons.append(f"path:{pat}")
 
         is_required = bool(matched_reasons)
-        active_rules, auto_na_rules = resolve_lane_rules(lane, signals, is_required, disabled_rules)
+        active_rules, auto_na_rules = resolve_lane_rules(
+            lane, signals, is_required, disabled_rules,
+            profile_allow_rules=profile_allow_rules, profile_name=profile,
+        )
         if is_required and not active_rules:
             is_required = False
 
@@ -1061,6 +1342,12 @@ def compute_progress(run_dir: Path, manifest: dict[str, Any], plan: dict[str, An
         "run_id": manifest["run_id"],
         "round": rnum,
         "mode": manifest["mode"],
+        "profile": manifest.get("profile", "standard"),
+        "profile_reason": manifest.get("profile_reason", ""),
+        "dispatch_mode": manifest.get("dispatch_mode", "bundle"),
+        "project_types": manifest.get("project_types", []),
+        "project_types_meta": manifest.get("project_types_meta", {}),
+        "fast_fail_advisories": manifest.get("fast_fail_advisories", []),
         "level": manifest["level"],
         "head_sha": manifest["head_sha"],
         "workspace_fingerprint": expected_fp,
@@ -1115,7 +1402,14 @@ def make_prompt_token(run_id: str, round_num: int, lane_id: str, fp: str) -> str
     return hashlib.sha256(f"{run_id}|r{round_num}|{lane_id}|{fp}".encode("utf-8")).hexdigest()[:12]
 
 
-def _lane_meta_example(lane_cfg: dict[str, Any], active_rule_ids: set[str], material: str) -> dict[str, Any]:
+def _lane_meta_example(
+    lane_cfg: dict[str, Any],
+    active_rule_ids: set[str],
+    material: str,
+    *,
+    compact: bool = True,
+    require_ux_matrix: bool = True,
+) -> dict[str, Any]:
     vals = lane_validators(lane_cfg)
     lid = lane_cfg["id"]
     out: dict[str, Any] = {}
@@ -1144,11 +1438,15 @@ def _lane_meta_example(lane_cfg: dict[str, Any], active_rule_ids: set[str], mate
             "unfamiliar_language_check": "PASS | FAIL | N/A | UNVERIFIED",
             "unfamiliar_language_evidence": "原版/陌生语言版及观察者熟悉度说明",
             "company_cases_loaded": False,
-            "ux_coverage": {
-                prefix: {"passed": total, "failed": 0, "na": 0, "unverified": 0, "failed_ids": [], "unverified_ids": []}
-                for prefix, _, total in UX_GROUPS
-            },
         })
+        if require_ux_matrix:
+            if compact:
+                out["ux_coverage_preset"] = "all_pass"
+            else:
+                out["ux_coverage"] = {
+                    prefix: {"passed": total, "failed": 0, "na": 0, "unverified": 0, "failed_ids": [], "unverified_ids": []}
+                    for prefix, _, total in UX_GROUPS
+                }
     if "journey_walkthrough" in vals and "RV-UI-05" in active_rule_ids:
         out["journey_walkthrough"] = {
             "blind_mode": True,
@@ -1255,6 +1553,21 @@ def stitch_blind_walkthrough_prompt(
     return "\n".join(lines) + "\n"
 
 
+def _format_project_type_lines(manifest: dict[str, Any], effective_cfg: dict[str, Any]) -> list[str]:
+    pt_ids = manifest.get("project_types") or []
+    if not pt_ids:
+        return []
+    pt_cfg = effective_cfg.get("project_types") or {}
+    labels = [f"`{pid}` ({(pt_cfg.get(pid) or {}).get('title', pid)})" for pid in pt_ids]
+    out = [f"- **项目类型与技术栈**: {', '.join(labels)}"]
+    for pid in pt_ids:
+        info = pt_cfg.get(pid) or {}
+        pts = info.get("focus_points") or []
+        if pts:
+            out.append(f"  - `{pid}` 专项重点: {'；'.join(pts)}")
+    return out
+
+
 def stitch_lane_prompt(
     run_dir: Path,
     manifest: dict[str, Any],
@@ -1290,13 +1603,18 @@ def stitch_lane_prompt(
         "## 1. 任务与独立审查声明",
         f"- **Run ID**: `{manifest['run_id']}` (Round `{rnum}`) | **Prompt Token**: `{token}`",
         f"- **Lane ID**: `{lane_id}` | **来源**: `{lane_cfg.get('source', 'base')}` | **本模块必检规则数**: `{len(active_rules)}` 条",
-        f"- **Target**: `{manifest['target']}` | **Mode**: `{manifest['mode']}` | **Level**: `{manifest['level']}`",
+        f"- **Target**: `{manifest['target']}` | **Mode**: `{manifest['mode']}` | **Profile**: `{manifest.get('profile', 'standard')}` | **Level**: `{manifest['level']}`",
         f"- **Base / Commit**: `{manifest.get('base_ref', 'N/A')}` -> `{manifest['head_sha']}` (Fingerprint: `{manifest['workspace_fingerprint']}`)",
         f"- **Material**: `{manifest['material']}`" + (f" | **Target URL**: `{manifest['target_url']}`" if manifest.get("target_url") else ""),
         "- **独立性纪律**：你是本模块的**独立只读审查者**。不改目标仓库代码；不信“CI 绿/开发说测过”；必须对下方每一条编号规则逐一给出结论与证据。",
+    ]
+    if manifest.get("fast_fail_advisories"):
+        lines.append("- **Stage 0 快返告警**: " + " | ".join(manifest["fast_fail_advisories"]))
+    lines.extend(_format_project_type_lines(manifest, effective_cfg))
+    lines.extend([
         "",
         "## 2. 本轮范围与前置线索",
-    ]
+    ])
     if manifest.get("intent_card"):
         lines.append(f"- **关联需求卡/Spec**: `{manifest['intent_card']}`")
     if "journey_review" in lane_validators(lane_cfg) and manifest.get("journeys"):
@@ -1377,9 +1695,25 @@ def stitch_lane_prompt(
             for pf in prev_for_lane:
                 lines.append(f"- 必须实测复验 [{pf.get('severity')}][{pf.get('rule_id', '-')}] `{pf.get('location')}` — {pf.get('problem')}（原建议: {pf.get('fix')}）")
 
-    lines.extend(["", f"## 4. 本维度逐条必检规则（共 {len(active_rules)} 条，submit 时 checks[] 必须逐条交账）"])
+    full_prompts = bool(manifest.get("full_prompts"))
+    profile_name = manifest.get("profile", "standard")
+    profile_cfg = (effective_cfg.get("profiles") or {}).get(profile_name, {})
+    require_ux_matrix = bool(profile_cfg.get("require_ux_coverage_matrix", True))
+    inherited_pass = lane_plan.get("inherited_pass_checks") or []
+    inherited_ids = {str(c.get("id", "")).strip() for c in inherited_pass if isinstance(c, dict)}
+    rules_to_display = [r for r in active_rules if r["id"] not in inherited_ids] if inherited_ids else active_rules
+
+    if inherited_ids:
+        lines.extend([
+            "",
+            f"## 4. 本维度 Delta 复审规则（本次仅需复验 {len(rules_to_display)} 条，已自动继承上轮 PASS 共 {len(inherited_ids)} 条）",
+            f"- **已继承上轮 PASS 规则（submit 时脚本自动补齐，无需重复编写）**: {', '.join(f'`{rid}`' for rid in sorted(inherited_ids))}",
+            "- 若本次修复触及了上述已继承规则，请将其显式加入 `checks[]` 以覆盖继承状态。",
+        ])
+    else:
+        lines.extend(["", f"## 4. 本维度逐条必检规则（共 {len(active_rules)} 条，submit 时 checks[] 必须逐条交账）"])
     last_grp: str | None = None
-    for idx, rule in enumerate(active_rules, 1):
+    for idx, rule in enumerate(rules_to_display, 1):
         grp = rule.get("group")
         if grp and grp != last_grp:
             lines.append(f"### 子分组：{grp}")
@@ -1390,24 +1724,44 @@ def stitch_lane_prompt(
         lines.append(f"   - 审查要点: {rule['check']}")
     if auto_na_rules:
         lines.append("")
-        lines.append("以下子规则未命中信号或被配置关闭，已标为 `AUTO_NA`（无需在 checks[] 中提交）：")
-        for rule in auto_na_rules:
-            lines.append(f"- `{rule['id']}` {rule['title']} — {rule.get('auto_na_reason', '')}")
+        lines.append(f"以下 {len(auto_na_rules)} 条子规则未命中信号/档位或被配置关闭，已标为 `AUTO_NA`（无需在 checks[] 中提交）：")
+        lines.append("- " + ", ".join(f"`{r['id']}`" for r in auto_na_rules))
 
     lines.extend(["", "## 5. 红线与禁止跳步规则"])
     for item in lane_cfg.get("anti_rationalizations", []) or ["无一手证据不得标 PASS；必须逐条核验全部激活规则。"]:
         lines.append(f"- {item}")
 
-    lines.extend(["", "## 6. 动态注入的规范依据"])
-    for ref_slice in lane_cfg.get("reference_slices", []):
-        cond = ref_slice.get("only_when_signal")
-        if cond and not manifest["signals"].get(cond):
-            continue
-        excerpt = extract_markdown_sections(REFERENCES_DIR / ref_slice["file"], ref_slice.get("sections", []))
-        lines.extend([f"### 来源: `references/{ref_slice['file']}`", excerpt, ""])
+    if full_prompts:
+        lines.extend(["", "## 6. 动态注入的规范依据（Full Mode）"])
+        for ref_slice in lane_cfg.get("reference_slices", []):
+            cond = ref_slice.get("only_when_signal")
+            if cond and not manifest["signals"].get(cond):
+                continue
+            excerpt = extract_markdown_sections(REFERENCES_DIR / ref_slice["file"], ref_slice.get("sections", []))
+            lines.extend([f"### 来源: `references/{ref_slice['file']}`", excerpt, ""])
+    else:
+        lines.extend([
+            "",
+            "## 6. 规范参考索引（Pointer-First：按需阅读，默认不内联冗长手册以节省上下文）",
+        ])
+        for ref_slice in lane_cfg.get("reference_slices", []):
+            cond = ref_slice.get("only_when_signal")
+            if cond and not manifest["signals"].get(cond):
+                continue
+            ref_abs = REFERENCES_DIR / ref_slice["file"]
+            secs = ", ".join(ref_slice.get("sections", [])) or "全文"
+            lines.append(f"- **`references/{ref_slice['file']}`**（章节: {secs}）→ `{ref_abs}`")
+        lines.append("")
+
     for custom_ref in lane_cfg.get("reference_files", []) or []:
         ref_path = Path(custom_ref)
-        excerpt = ref_path.read_text(encoding="utf-8").strip() if ref_path.is_file() else f"_(custom reference not found: {custom_ref})_"
+        if ref_path.is_file():
+            excerpt = ref_path.read_text(encoding="utf-8").strip()
+            limit = 4000 if full_prompts else 1500
+            if len(excerpt) > limit:
+                excerpt = excerpt[:limit].rstrip() + f"\n\n_(已截断前 {limit} 字符，完整版见 `{custom_ref}`)_"
+        else:
+            excerpt = f"_(custom reference not found: {custom_ref})_"
         lines.extend([f"### 自定义参考: `{custom_ref}`", excerpt, ""])
     already_injected = {str(Path(r).resolve()) for r in (lane_cfg.get("reference_files") or []) if Path(r).exists()}
     if design_docs and ("ui_ux_audit" in vals or ("journey_review" in vals and "RV-BIZ-05" in active_rule_ids)):
@@ -1418,15 +1772,19 @@ def stitch_lane_prompt(
             if not dpath.is_file():
                 continue
             raw_txt = dpath.read_text(encoding="utf-8").strip()
-            if len(raw_txt) > 4000:
-                raw_txt = raw_txt[:4000].rstrip() + f"\n\n_(已截断前 4000 字符，完整版见 `{doc['path']}`)_"
+            limit = 4000 if full_prompts else 1800
+            if len(raw_txt) > limit:
+                raw_txt = raw_txt[:limit].rstrip() + f"\n\n_(已截断前 {limit} 字符，完整版见 `{doc['path']}`)_"
             lines.extend([f"### 自动加载的设计理念 ({doc['layer']}): `{doc['name']}`", raw_txt, ""])
     if "ui_ux_audit" in vals:
         lines.append(f"- 完整 70 条界面规则目录: `{REFERENCES_DIR / 'ui-ux-rules.md'}`（精简索引: `{REFERENCES_DIR / 'ui-ux-rules-short.md'}`）。")
         lines.append("")
 
-    checks_template = [{"id": r["id"], "status": "PASS", "note": f"{r['title']} 核查证据或说明"} for r in active_rules]
-    sample_rule_id = active_rules[0]["id"] if active_rules else "RV-BASE-01"
+    sample_rule_id = (rules_to_display[0]["id"] if rules_to_display else (active_rules[0]["id"] if active_rules else "RV-BASE-01"))
+    if full_prompts:
+        checks_template = [{"id": r["id"], "status": "PASS", "note": f"{r['title']} 核查证据或说明"} for r in rules_to_display]
+    else:
+        checks_template = [{"id": sample_rule_id, "status": "PASS | FAIL | BLOCKED | N/A", "note": "一手核查证据或说明"}]
     sample_payload = {
         "lane_id": lane_id,
         "prompt_token": token,
@@ -1448,18 +1806,39 @@ def stitch_lane_prompt(
         "open_questions": [],
         "test_gaps": [],
         "unverified_items": [],
-        "unrun_checks": [{"check": "未运行项", "reason": "原因", "remediation": "最小补证办法"}],
+        "unrun_checks": [],
         "residual_risks": [],
         "reason": "当 lane status 为 N/A 或 BLOCKED 时必填",
-        "meta": _lane_meta_example(lane_cfg, active_rule_ids, manifest["material"]),
+        "meta": _lane_meta_example(
+            lane_cfg,
+            active_rule_ids,
+            manifest["material"],
+            compact=not full_prompts,
+            require_ux_matrix=require_ux_matrix,
+        ),
     }
+    required_id_list = ", ".join(f"`{r['id']}`" for r in rules_to_display)
+    ux_hint = (
+        f"- **UX 矩阵快捷方式**：若 14 组 70 条 `UX-*` 全部通过，直接在 `meta` 保留 `\"ux_coverage_preset\": \"all_pass\"` 或给 `submit` 加 `--ux-all-pass`（若仅少数分组有 fail/na/unverified，可保留 preset 并在 `meta.ux_coverage` 中仅覆盖变动分组）。"
+        if ("ui_ux_audit" in vals and require_ux_matrix)
+        else (
+            "- **Fast Profile 说明**：当前为 `fast` 档，免交 14 组 `ux_coverage` 矩阵，聚焦核心体验与阻塞问题即可。"
+            if ("ui_ux_audit" in vals and not require_ux_matrix)
+            else ""
+        )
+    )
     lines.extend([
         "## 7. 过程日志与提交契约",
+        f"- **必交 `checks[]` 规则 ID（{len(rules_to_display)} 条）**: {required_id_list or '（无，全部继承自上轮）'}",
         f"- （可选）开工打点：`python3 \"{runner_path}\" start --run \"{run_dir}\" --lane {lane_id}`",
-        "- 完成后必须将逐条 `checks[]` 落盘：",
+        "- 完成后提交 JSON（多维度并行收口也可一次 `submit-batch --run <dir> --input -` 提交数组）：",
         "```bash",
-        f'python3 "{runner_path}" submit --run "{run_dir}" --lane {lane_id} --input -',
+        f'python3 "{runner_path}" submit --run "{run_dir}" --lane {lane_id}' + (" [--ux-all-pass]" if ("ui_ux_audit" in vals and require_ux_matrix) else "") + " --input -",
         "```",
+    ])
+    if ux_hint:
+        lines.append(ux_hint)
+    lines.extend([
         "```json",
         json.dumps(sample_payload, ensure_ascii=False, indent=2),
         "```",
@@ -1509,6 +1888,190 @@ def issue_prompt_for_lane(run_dir: Path, manifest: dict[str, Any], effective_cfg
     if blind_path_str:
         out["blind_prompt_path"] = blind_path_str
     return out
+
+
+def bundle_prompt_path(run_dir: Path, round_num: int) -> Path:
+    return round_dir(run_dir, round_num) / "prompts" / "bundle_batch.md"
+
+
+def stitch_bundle_prompt(
+    run_dir: Path,
+    manifest: dict[str, Any],
+    effective_cfg: dict[str, Any],
+    plan: dict[str, Any],
+    results: dict[str, dict[str, Any]],
+    dispatched_items: list[dict[str, Any]],
+) -> str:
+    """Stitch multiple non-blind ready lanes into ONE single-shot AI prompt + submit-batch contract."""
+    rnum = int(manifest["current_round"])
+    runner_path = str((EE_ROOT / "scripts" / "review_runner.py").resolve())
+    profile_name = manifest.get("profile", "standard")
+    profile_cfg = (effective_cfg.get("profiles") or {}).get(profile_name, {})
+    require_ux_matrix = bool(profile_cfg.get("require_ux_coverage_matrix", True))
+    full_prompts = bool(manifest.get("full_prompts"))
+    lane_ids = [d["lane_id"] for d in dispatched_items]
+    token_map = {d["lane_id"]: d["prompt_token"] for d in dispatched_items}
+    cfg_map = {item["id"]: item for item in effective_cfg["lanes"]}
+    plan_map = {item["id"]: item for item in plan["lanes"]}
+
+    total_rules_to_check = 0
+    lane_blocks: list[str] = []
+    seen_refs: set[tuple[str, tuple[str, ...]]] = set()
+    ref_lines: list[str] = []
+    seen_custom_refs: set[str] = set()
+    custom_ref_blocks: list[str] = []
+    seen_deps: set[str] = set()
+    upstream_blocks: list[str] = []
+    submissions_template: list[dict[str, Any]] = []
+    any_ui_or_journey = False
+
+    for lid in lane_ids:
+        lcfg = cfg_map[lid]
+        lplan = plan_map[lid]
+        vals = lane_validators(lcfg)
+        active_rules = lplan.get("active_rules", [])
+        active_rule_ids = {r["id"] for r in active_rules}
+        if "ui_ux_audit" in vals or ("journey_review" in vals and "RV-BIZ-05" in active_rule_ids):
+            any_ui_or_journey = True
+        inherited_pass = lplan.get("inherited_pass_checks") or []
+        inherited_ids = {str(c.get("id", "")).strip() for c in inherited_pass if isinstance(c, dict)}
+        rules_to_display = [r for r in active_rules if r["id"] not in inherited_ids] if inherited_ids else active_rules
+        total_rules_to_check += len(rules_to_display)
+
+        blk: list[str] = [
+            f"### 维度 `{lid}` — {lcfg['title']}（`prompt_token`: `{token_map[lid]}`）",
+            f"- **核心问题**: {lcfg.get('dimension_question', '')}",
+        ]
+        if inherited_ids:
+            blk.append(f"- **Delta 继承上轮 PASS（{len(inherited_ids)} 条，submit-batch 自动补齐）**: {', '.join(f'`{x}`' for x in sorted(inherited_ids))}")
+        for idx, rule in enumerate(rules_to_display, 1):
+            na_tag = "可 N/A" if rule.get("allow_na", True) else "**不可 N/A**"
+            blk.append(f"  {idx}. **`{rule['id']}` {rule['title']}**（{na_tag}）— {rule['check']}")
+        anti = lcfg.get("anti_rationalizations") or []
+        if anti:
+            blk.append(f"- **红线**: {'；'.join(anti[:2])}")
+        lane_blocks.append("\n".join(blk))
+
+        for dep_id in lcfg.get("depends_on", []):
+            if dep_id in results and dep_id not in seen_deps:
+                seen_deps.add(dep_id)
+                dep = results[dep_id]
+                upstream_blocks.append(f"- 上游 `{dep_id}` (`{dep['status']}`): {dep.get('summary', '')}")
+
+        for ref_slice in lcfg.get("reference_slices", []):
+            cond = ref_slice.get("only_when_signal")
+            if cond and not manifest["signals"].get(cond):
+                continue
+            key = (ref_slice["file"], tuple(ref_slice.get("sections", [])))
+            if key in seen_refs:
+                continue
+            seen_refs.add(key)
+            ref_abs = REFERENCES_DIR / ref_slice["file"]
+            secs = ", ".join(ref_slice.get("sections", [])) or "全文"
+            ref_lines.append(f"- **`references/{ref_slice['file']}`**（章节: {secs}）→ `{ref_abs}`")
+
+        for custom_ref in lcfg.get("reference_files", []) or []:
+            if custom_ref in seen_custom_refs:
+                continue
+            seen_custom_refs.add(custom_ref)
+            rp = Path(custom_ref)
+            if rp.is_file():
+                txt = rp.read_text(encoding="utf-8").strip()
+                if len(txt) > 1500:
+                    txt = txt[:1500].rstrip() + f"\n_(完整版见 `{custom_ref}`)_"
+                custom_ref_blocks.append(f"#### 自定义参考 `{custom_ref}`\n{txt}")
+
+        sample_rid = rules_to_display[0]["id"] if rules_to_display else (active_rules[0]["id"] if active_rules else "RV-BASE-01")
+        sub_obj: dict[str, Any] = {
+            "lane_id": lid,
+            "prompt_token": token_map[lid],
+            "status": "PASS | FAIL | BLOCKED | N/A",
+            "reviewer": manifest.get("reviewer") or "independent-reviewer",
+            "summary": "一句话结论",
+            "checks": [{"id": sample_rid, "status": "PASS | FAIL | BLOCKED | N/A", "note": f"必须覆盖本维度全部 {len(rules_to_display)} 条: {', '.join(r['id'] for r in rules_to_display)}"}],
+            "evidence": ["具体命令/文件/日志证据"],
+            "commands_run": ["实际命令及退出码"],
+            "findings": [],
+            "test_gaps": [],
+            "unverified_items": [],
+            "meta": _lane_meta_example(lcfg, active_rule_ids, manifest["material"], compact=not full_prompts, require_ux_matrix=require_ux_matrix),
+        }
+        submissions_template.append(sub_obj)
+
+    repo_ctx = manifest["repo_context"]
+    ds = manifest.get("diff_stats", {})
+    changed_files = manifest.get("changed_files", [])
+    pre_probes = manifest.get("pre_probes", {})
+
+    lines: list[str] = [
+        f"# Single-Shot Consolidated Review Batch（单批次合并质检：一次输入，一次输出）",
+        "",
+        "## 1. 共享审查范围与代码预探针（只读一遍 diff，覆盖全部 1 批次维度）",
+        f"- **Run ID**: `{manifest['run_id']}` (Round `{rnum}`) | **Profile**: `{profile_name}` | **Dispatch**: `bundle`（合批维度: {', '.join(f'`{x}`' for x in lane_ids)}，共 `{total_rules_to_check}` 条必检规则）",
+        f"- **Target**: `{manifest['target']}` | **Mode**: `{manifest['mode']}` | **Level**: `{manifest['level']}`",
+        f"- **Base / Commit**: `{manifest.get('base_ref', 'N/A')}` -> `{manifest['head_sha']}` (Fingerprint: `{manifest['workspace_fingerprint']}`)",
+        "- **单批次执行纪律**：你是**独立只读审查者**。不改目标仓库代码；只读一遍 git diff、按需跑一次受影响 build/lint/test（含 React Doctor 若适用），**一次性完成下方所有维度的逐条核验并输出完整 JSON 数组提交 `submit-batch`**，避免按维度重复读文件与多次 API 往返。",
+    ]
+    if manifest.get("fast_fail_advisories"):
+        lines.append("- **Stage 0 快返告警**: " + " | ".join(manifest["fast_fail_advisories"]))
+    lines.extend(_format_project_type_lines(manifest, effective_cfg))
+    if manifest.get("intent_card"):
+        lines.append(f"- **关联需求卡/Spec**: `{manifest['intent_card']}`")
+    if repo_ctx.get("governance_docs"):
+        lines.append(f"- **项目治理文档**: {', '.join(f'`{d}`' for d in repo_ctx['governance_docs'])}")
+    if ds:
+        lines.append(f"- **Diff 规模**: {ds.get('files_changed', 0)} 个文件，+{ds.get('added', 0)} / -{ds.get('deleted', 0)} 行（{ds.get('size_tier', 'N/A')}）")
+    if changed_files:
+        lines.append(f"- **变更文件（共 {len(changed_files)} 个）**: " + ", ".join(f"`{f}`" for f in changed_files[:30]) + (" ..." if len(changed_files) > 30 else ""))
+    if pre_probes:
+        lines.append(f"- **代码预探针 `git diff --check`**: {'通过' if pre_probes.get('git_diff_check_ok') else '发现问题'}")
+        clues = pre_probes.get("secret_clues", [])
+        lines.append(f"- **代码预探针密钥线索**: {len(clues)} 条" + ("" if not clues else " -> " + ", ".join(f"`{c['file']}`({c['kind']})" for c in clues)))
+    if manifest["signals"].get("is_react") and "code_quality" in lane_ids:
+        lines.append(f"- **React Doctor 建议命令**: `npx --yes react-doctor@latest . --yes --scope changed --base {manifest.get('base_ref', 'origin/main')} --no-telemetry --no-supply-chain --json --json-out {round_dir(run_dir, rnum) / 'artifacts' / 'react-doctor.json'}`")
+    if upstream_blocks:
+        lines.extend(["- **上游已落盘证据**:", *upstream_blocks])
+
+    carryover_path = round_dir(run_dir, rnum) / "carryover_findings.json"
+    if carryover_path.exists():
+        carryover = read_json(carryover_path)
+        rel_findings = [f for f in carryover.get("findings", []) if f.get("lane_id") in lane_ids]
+        if rel_findings or carryover.get("fix_files"):
+            lines.extend(["", f"## 复审指令（Round {rnum} 增量复验）"])
+            if carryover.get("fix_files"):
+                lines.append(f"- 修复改动文件: {', '.join(f'`{f}`' for f in carryover['fix_files'][:20])}")
+            for pf in rel_findings:
+                lines.append(f"- 复验 [{pf.get('lane_id')}][{pf.get('severity')}][{pf.get('rule_id', '-')}] `{pf.get('location')}` — {pf.get('problem')}")
+
+    lines.extend(["", f"## 2. 本批次涵盖维度与必检规则（共 {len(lane_ids)} 维度 / {total_rules_to_check} 条规则）"])
+    lines.extend(["\n\n".join(lane_blocks)])
+
+    if ref_lines or custom_ref_blocks:
+        lines.extend(["", "## 3. 规范参考索引（Pointer-First 去重列表，按需查阅）", *ref_lines])
+        lines.extend(custom_ref_blocks)
+
+    design_docs = repo_ctx.get("design_principle_docs") or []
+    if design_docs and any_ui_or_journey:
+        for doc in design_docs[:4]:
+            dpath = Path(doc["path"])
+            if dpath.is_file():
+                raw_txt = dpath.read_text(encoding="utf-8").strip()
+                if len(raw_txt) > 1500:
+                    raw_txt = raw_txt[:1500].rstrip() + f"\n_(完整版见 `{doc['path']}`)_"
+                lines.extend([f"### 自动加载的设计理念 ({doc['layer']}): `{doc['name']}`", raw_txt, ""])
+
+    lines.extend([
+        "",
+        "## 4. 一次性批量提交契约（`submit-batch`）",
+        "- 审查完毕后，**一次性**将包含全部维度的 JSON 提交给 `submit-batch`（脚本仍会对每个维度执行全部 `checks[]` 与专项 `meta` 硬校验）：",
+        "```bash",
+        f'python3 "{runner_path}" submit-batch --run "{run_dir}" --input -',
+        "```",
+        "```json",
+        json.dumps({"submissions": submissions_template}, ensure_ascii=False, indent=2),
+        "```",
+    ])
+    return "\n".join(lines) + "\n"
 
 
 def validate_lane_submission(
@@ -1576,9 +2139,27 @@ def validate_lane_submission(
     if not isinstance(meta, dict):
         errors.append("meta must be an object")
         meta = {}
+    else:
+        expand_ux_coverage_preset(meta)
 
     active_rules = {r["id"]: r for r in lane_plan.get("active_rules", [])}
+    inherited_pass = {
+        c["id"]: c for c in (lane_plan.get("inherited_pass_checks") or [])
+        if isinstance(c, dict) and c.get("id") in active_rules
+    }
     checks = payload.get("checks")
+    if isinstance(checks, list) and inherited_pass:
+        supplied_ids = {str(c.get("id", "")).strip() for c in checks if isinstance(c, dict)}
+        merged_checks = list(checks)
+        for rid, prev_c in inherited_pass.items():
+            if rid not in supplied_ids:
+                merged_checks.append({
+                    "id": rid,
+                    "status": "PASS",
+                    "note": f"[Delta 继承自上轮] {prev_c.get('note', 'PASS')}",
+                })
+        checks = merged_checks
+        payload["checks"] = merged_checks
     if not isinstance(checks, list):
         errors.append(f"checks must be a list accounting for every active rule: {', '.join(active_rules)}")
         checks = []
@@ -1711,8 +2292,8 @@ def validate_lane_submission(
                     "confirm review against them by setting meta.company_cases_loaded=true"
                 )
 
-        # 14-group structured 70-rule UX coverage guard (RV-UI-03)
-        if "RV-UI-03" in active_rules and status in ("PASS", "FAIL"):
+        # 14-group structured 70-rule UX coverage guard (RV-UI-03; optional in fast profile)
+        if "RV-UI-03" in active_rules and status in ("PASS", "FAIL") and manifest.get("profile") != "fast":
             ux_cov = meta.get("ux_coverage")
             if not isinstance(ux_cov, dict):
                 errors.append(f"{lane_id}: RV-UI-03 requires structured meta.ux_coverage covering all 14 UX groups (70 rules total)")
@@ -2159,8 +2740,15 @@ def cmd_init(args: argparse.Namespace) -> int:
         has_release_flag=args.has_release,
         intent_card=args.intent_card,
         journey_override=journey_override,
+        profile_arg=args.profile,
+        project_type_args=args.project_type,
     )
-    plan = build_plan(effective_cfg, args.mode, detected["signals"], git_info["changed_files"])
+    plan = build_plan(effective_cfg, args.mode, detected["signals"], git_info["changed_files"], profile=detected["profile"])
+    fast_fail_advisories: list[str] = []
+    if (git_info.get("pre_probes") or {}).get("has_merge_conflicts"):
+        fast_fail_advisories.append("检测到合并冲突标记（conflict markers），建议直接阻断并先解冲突，无需跑全量评审。")
+    if args.draft:
+        fast_fail_advisories.append("已标记为 Draft PR（--draft），建议仅做轻量反馈或直接暂缓合并，避免全量重度审查。")
 
     if args.mode in ("pr", "delivery", "release") and not git_info["changed_files"] and detected["material"] == "code":
         msg = "no diff, changed files, or UI material detected; pass --base, --files, or --material"
@@ -2171,7 +2759,9 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 2
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    short_hash = hashlib.sha256(f"{target}|{git_info['workspace_fingerprint']}|{stamp}".encode()).hexdigest()[:6]
+    short_hash = hashlib.sha256(
+        f"{target}|{git_info['workspace_fingerprint']}|{args.mode}|{detected['profile']}|{stamp}|{os.urandom(4).hex()}".encode()
+    ).hexdigest()[:6]
     run_id = args.run_id or f"rev-{stamp}-{short_hash}"
 
     if args.state_dir:
@@ -2190,6 +2780,14 @@ def cmd_init(args: argparse.Namespace) -> int:
         "current_round": 1,
         "target": str(target),
         "mode": args.mode,
+        "profile": detected["profile"],
+        "profile_reason": detected["profile_reason"],
+        "dispatch_mode": resolve_dispatch_mode(getattr(args, "dispatch", "auto"), detected["profile"]),
+        "project_types": detected["project_types"],
+        "project_types_meta": detected["project_types_meta"],
+        "full_prompts": bool(args.full_prompts),
+        "is_draft": bool(args.draft),
+        "fast_fail_advisories": fast_fail_advisories,
         "level": detected["effective_level"],
         "level_bump_reason": detected["level_bump_reason"],
         "material": detected["material"],
@@ -2233,6 +2831,12 @@ def cmd_init(args: argparse.Namespace) -> int:
         "run_dir": str(run_dir),
         "round": 1,
         "mode": manifest["mode"],
+        "profile": manifest.get("profile", "standard"),
+        "profile_reason": manifest.get("profile_reason", ""),
+        "dispatch_mode": manifest.get("dispatch_mode", "bundle"),
+        "project_types": manifest.get("project_types", []),
+        "project_types_meta": manifest.get("project_types_meta", {}),
+        "fast_fail_advisories": manifest.get("fast_fail_advisories", []),
         "level": manifest["level"],
         "level_bump_reason": manifest["level_bump_reason"],
         "applied_overlays": effective_cfg["applied_overlays"],
@@ -2385,35 +2989,91 @@ def cmd_next(args: argparse.Namespace) -> int:
     progress = compute_progress(run_dir, manifest, plan, results)
     active_phase = progress["active_phase"]
     can_run_concurrently = len(dispatched) > 1 and all(d["can_parallel"] for d in dispatched)
+    eff_dispatch = resolve_dispatch_mode(
+        getattr(args, "dispatch", None) or manifest.get("dispatch_mode", "auto"),
+        manifest.get("profile", "standard"),
+    )
+    bundleable = [d for d in dispatched if not d.get("blind_prompt_path")]
+    standalone = [d for d in dispatched if d.get("blind_prompt_path")]
+    bundle_info: dict[str, Any] | None = None
+    if eff_dispatch == "bundle" and len(bundleable) >= 2 and not args.lane:
+        rnum = int(manifest["current_round"])
+        b_text = stitch_bundle_prompt(run_dir, manifest, effective_cfg, plan, results, bundleable)
+        b_path = bundle_prompt_path(run_dir, rnum)
+        atomic_write_text(b_path, b_text)
+        b_lane_ids = [d["lane_id"] for d in bundleable]
+        b_total_rules = sum(len(d["active_rule_ids"]) for d in bundleable)
+        record_event(
+            run_dir, "BUNDLE_DISPATCHED",
+            f"→ 已合批生成单批次 Prompt: {', '.join(b_lane_ids)} ({b_total_rules} 条规则 -> 1 次 AI 质检)",
+            round_num=rnum, phase_id=active_phase["id"] if active_phase else None, status="BUNDLE_ISSUED",
+            details={"lane_ids": b_lane_ids, "total_rules": b_total_rules, "prompt_path": str(b_path)},
+        )
+        bundle_info = {
+            "lane_ids": b_lane_ids,
+            "total_rules": b_total_rules,
+            "prompt_path": str(b_path),
+            "submit_command": f'python3 "{runner_path}" submit-batch --run "{run_dir}" --input -',
+            "prompt_text": b_text if args.inline else None,
+        }
+        dispatch_directive = (
+            f"当前启用单批次合批模式（bundle）：请直接读取合并 Prompt `{b_path}`，"
+            f"只读一遍 diff 一次性完成 {', '.join(b_lane_ids)} 共 {len(b_lane_ids)} 个维度（{b_total_rules} 条规则），"
+            "然后一次调用 submit-batch 提交全部维度 JSON 数组。"
+            + (f"（另需独立执行物理隔离盲测维度: {', '.join(d['lane_id'] for d in standalone)}）" if standalone else "")
+        )
+        effective_mode_label = "bundle"
+    else:
+        dispatch_directive = (
+            f"当前有 {len(dispatched)} 个就绪维度可并行：必须按「1 维度 = 1 独立只读 subagent」并发派发，"
+            "禁止把多个维度塞给同一子 Agent 串行执行；且任一维度完成后可随时 submit，engineering_baseline 落盘后立刻再跑 next 解锁 ui_ux_experience。"
+            if can_run_concurrently else ""
+        )
+        effective_mode_label = "parallel" if can_run_concurrently else "single"
+
     out = {
         "ok": True,
         "action": "execute_lanes",
         "run_id": progress["run_id"],
         "round": progress["round"],
+        "profile": manifest.get("profile", "standard"),
+        "dispatch_mode": effective_mode_label,
         "progress": f"{progress['total_completed']}/{progress['total_required']}",
         "rules_progress": f"{progress['total_checked_rules']}/{progress['total_active_rules']}",
         "active_phase": active_phase,
         "can_run_concurrently": can_run_concurrently,
+        "dispatch_directive": dispatch_directive,
         "early_stop_available": progress["has_blocking_findings"],
         "ready_lanes": [{k: v for k, v in d.items() if k != "prompt_text" or args.inline} for d in dispatched],
     }
+    if bundle_info is not None:
+        out["bundle"] = {k: v for k, v in bundle_info.items() if k != "prompt_text" or args.inline}
+        out["standalone_lanes"] = [{k: v for k, v in d.items() if k != "prompt_text" or args.inline} for d in standalone]
 
     if args.json:
         print(json.dumps(out, ensure_ascii=False, indent=2))
     else:
         print(render_progress_board(progress))
-        print(f"\n[LOG {short_ts()}][R{progress['round']}] → 当前阶段: {active_phase['title']} ({'可并发派发' if can_run_concurrently else '执行就绪模块'})")
+        mode_zh = "单批次合批（一次输入一次输出）" if bundle_info else ("可并发派发" if can_run_concurrently else "执行就绪模块")
+        print(f"\n[LOG {short_ts()}][R{progress['round']}] → 当前阶段: {active_phase['title']} ({mode_zh})")
         if progress["has_blocking_findings"]:
             print(f'  Early-stop: python3 "{runner_path}" finalize --run "{run_dir}" --early-stop --reason "..."')
+        if bundle_info:
+            print(f"  ★ 合并批次 Prompt ({len(bundle_info['lane_ids'])} 维度 / {bundle_info['total_rules']} 条规则): {bundle_info['prompt_path']}")
+            print(f"    批量提交: {bundle_info['submit_command']}")
         for d in dispatched:
             print(f"  - {d['lane_id']} ({d['title']}) [token={d['prompt_token']}]")
             print(f"    Rules:  {', '.join(d['active_rule_ids'])}")
             print(f"    Prompt: {d['prompt_path']}")
             print(f"    Submit: {d['submit_command']}")
         if args.inline or (len(dispatched) == 1 and not args.emit_prompts):
-            for d in dispatched:
+            if bundle_info:
                 print("\n" + "=" * 72)
-                print(d["prompt_text"] or Path(d["prompt_path"]).read_text(encoding="utf-8"))
+                print(bundle_info["prompt_text"] or Path(bundle_info["prompt_path"]).read_text(encoding="utf-8"))
+            else:
+                for d in dispatched:
+                    print("\n" + "=" * 72)
+                    print(d["prompt_text"] or Path(d["prompt_path"]).read_text(encoding="utf-8"))
     return 0
 
 
@@ -2464,6 +3124,10 @@ def cmd_submit(args: argparse.Namespace) -> int:
         }
 
     payload["lane_id"] = args.lane
+    if getattr(args, "ux_all_pass", False):
+        payload.setdefault("meta", {})
+        if isinstance(payload["meta"], dict) and "ux_coverage" not in payload["meta"]:
+            payload["meta"]["ux_coverage_preset"] = "all_pass"
     errors = validate_lane_submission(run_dir, manifest, plan, results, args.lane, payload)
     if errors:
         if args.json:
@@ -2719,16 +3383,18 @@ def _lane_touched_by_files(lane_plan: dict[str, Any], effective_cfg: dict[str, A
     lower = [f.lower() for f in files]
     sp = effective_cfg.get("signal_patterns", DEFAULT_SIGNAL_PATTERNS)
     bucket = lane_plan.get("file_bucket")
+    if bucket == "code_files":
+        return any(Path(f).suffix.lower() in CODE_EXTENSIONS for f in files)
     if bucket == "react_files":
         return any(Path(f).suffix.lower() in {".tsx", ".jsx", ".ts", ".js"} for f in files)
     if bucket == "ui_files":
-        return any(Path(f).suffix.lower() in UI_EXTENSIONS or any(t in lf for t in ("components/", "pages/", "views/", "ui/", "design.md")) for f, lf in zip(files, lower))
+        return any(Path(f).suffix.lower() in UI_EXTENSIONS or any(t in strip_monorepo_prefix(lf) for t in ("components/", "pages/", "views/", "ui/", "design.md")) for f, lf in zip(files, lower))
     if bucket == "security_files":
-        return any(any(p in lf for p in sp.get("security", [])) for lf in lower)
+        return any(not is_test_file(f) and any(p in strip_monorepo_prefix(lf) for p in sp.get("security", [])) for f, lf in zip(files, lower))
     if bucket == "arch_dx_ai_files":
-        return any(any(p in lf for p in sp.get("arch_data", []) + sp.get("dx", []) + sp.get("ai_automation", [])) for lf in lower)
+        return any(not is_test_file(f) and any(p in strip_monorepo_prefix(lf) for p in sp.get("arch_data", []) + sp.get("dx", []) + sp.get("ai_automation", [])) for f, lf in zip(files, lower))
     if bucket == "security_arch_files":
-        return any(any(p in lf for p in sp.get("security", []) + sp.get("arch_data", []) + sp.get("dx", []) + sp.get("ai_automation", [])) for lf in lower)
+        return any(not is_test_file(f) and any(p in strip_monorepo_prefix(lf) for p in sp.get("security", []) + sp.get("arch_data", []) + sp.get("dx", []) + sp.get("ai_automation", [])) for f, lf in zip(files, lower))
     if bucket == "release_files":
         return any(any(p in lf for p in sp.get("release", [])) for lf in lower)
     pats = lane_plan.get("trigger_path_patterns") or []
@@ -2754,9 +3420,15 @@ def cmd_recheck(args: argparse.Namespace) -> int:
         git_root = Path(manifest["git_root"])
         new_git = parse_git_state(git_root, manifest.get("base_ref"))
         if prev_head and prev_head != "UNCOMMITTED":
-            delta = run_git(git_root, ["diff", "--name-only", prev_head, "HEAD"])
-            if delta.returncode == 0:
-                fix_files.extend(line.strip() for line in delta.stdout.splitlines() if line.strip())
+            # Exclude merge commits (e.g., `git merge origin/dev`) so upstream noise doesn't force 100% lane reopen
+            no_merge = run_git(git_root, ["log", "--no-merges", "--name-only", "--pretty=format:", f"{prev_head}..HEAD"])
+            if no_merge.returncode == 0 and no_merge.stdout.strip():
+                fix_files.extend(line.strip() for line in no_merge.stdout.splitlines() if line.strip())
+            else:
+                delta = run_git(git_root, ["diff", "--name-only", prev_head, "HEAD"])
+                if delta.returncode == 0:
+                    pr_set = set(new_git.get("changed_files") or [])
+                    fix_files.extend(line.strip() for line in delta.stdout.splitlines() if line.strip() and (not pr_set or line.strip() in pr_set))
         wt = run_git(git_root, ["diff", "--name-only", "HEAD"])
         if wt.returncode == 0:
             fix_files.extend(line.strip() for line in wt.stdout.splitlines() if line.strip())
@@ -2768,18 +3440,28 @@ def cmd_recheck(args: argparse.Namespace) -> int:
         manifest["workspace_fingerprint"] = f"nogit:{new_label}"
 
     force_lanes = {s.strip() for s in (args.force_lanes or "").split(",") if s.strip()}
+    full_recheck = bool(getattr(args, "full_recheck", False))
     carryover_findings = [{**f, "lane_id": lid} for lid, res in prev_results.items() for f in res.get("findings", [])]
 
+    new_plan = copy.deepcopy(prev_plan)
     carried_forward: list[str] = []
     reopened: list[str] = []
+    delta_lanes: list[str] = []
     new_results: dict[str, dict[str, Any]] = {}
-    for lp in prev_plan["lanes"]:
+    for lp in new_plan["lanes"]:
         lid = lp["id"]
+        lp.pop("inherited_pass_checks", None)
         if not lp["required"]:
             continue
         prev = prev_results.get(lid)
         if lid in force_lanes or prev is None or prev["status"] in ("FAIL", "BLOCKED") or _lane_touched_by_files(lp, effective_cfg, fix_files):
             reopened.append(lid)
+            if not full_recheck and prev is not None and lp.get("recheck_policy") != "always":
+                prev_pass = [c for c in (prev.get("checks") or []) if isinstance(c, dict) and c.get("status") == "PASS"]
+                prev_non_pass = [c for c in (prev.get("checks") or []) if isinstance(c, dict) and c.get("status") != "PASS"]
+                if prev_pass and prev_non_pass:
+                    lp["inherited_pass_checks"] = prev_pass
+                    delta_lanes.append(lid)
         else:
             carried = {**prev, "round": new_round, "carried_from_round": prev_round, "head_sha": manifest["head_sha"], "workspace_fingerprint": manifest["workspace_fingerprint"]}
             atomic_write_json(lane_result_path(run_dir, new_round, lid), carried)
@@ -2788,17 +3470,18 @@ def cmd_recheck(args: argparse.Namespace) -> int:
 
     manifest["current_round"] = new_round
     atomic_write_json(run_dir / "manifest.json", manifest)
-    atomic_write_json(round_dir(run_dir, new_round) / "plan.json", prev_plan)
+    atomic_write_json(round_dir(run_dir, new_round) / "plan.json", new_plan)
     atomic_write_json(round_dir(run_dir, new_round) / "carryover_findings.json", {"from_round": prev_round, "fix_files": fix_files, "findings": carryover_findings})
 
     record_event(
         run_dir, "ROUND_RECHECK",
-        f"↻ 启动复审 Round {new_round} @ {manifest['head_sha']} — 重开 {len(reopened)} 模块 ({', '.join(reopened)}), 结转 {len(carried_forward)} 模块",
+        f"↻ 启动复审 Round {new_round} @ {manifest['head_sha']} — 重开 {len(reopened)} 维度 ({', '.join(reopened)}), 结转 {len(carried_forward)} 维度"
+        + (f" [Delta 模式: {', '.join(delta_lanes)}]" if delta_lanes else ""),
         round_num=new_round, status="RECHECK",
-        details={"reopened": reopened, "carried_forward": carried_forward, "fix_files": fix_files},
+        details={"reopened": reopened, "carried_forward": carried_forward, "delta_lanes": delta_lanes, "fix_files": fix_files},
     )
 
-    progress = compute_progress(run_dir, manifest, prev_plan, new_results)
+    progress = compute_progress(run_dir, manifest, new_plan, new_results)
     runner_path = str((EE_ROOT / "scripts" / "review_runner.py").resolve())
     next_cmd = f'python3 "{runner_path}" next --run "{run_dir}" --emit-prompts'
     out = {
@@ -2841,6 +3524,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--target", default=".")
     p_init.add_argument("--base", default=None)
     p_init.add_argument("--mode", choices=VALID_MODES, default="pr")
+    p_init.add_argument("--profile", choices=VALID_PROFILES, default="auto", help="Review depth profile: auto (default), fast (small PR <=250 lines), standard, or full.")
+    p_init.add_argument("--dispatch", choices=VALID_DISPATCH_MODES, default="auto", help="AI execution dispatch: auto (bundle for fast/standard, parallel for full), bundle (single-shot batch), or parallel (1 subagent per lane).")
+    p_init.add_argument("--project-type", action="append", choices=VALID_PROJECT_TYPES, default=None, help="Override detected project/tech-stack archetype (repeatable, e.g. --project-type desktop_app --project-type ai_agent).")
+    p_init.add_argument("--full-prompts", action="store_true", help="Inline full reference manuals into prompts instead of pointer-first slim prompts.")
+    p_init.add_argument("--draft", action="store_true", help="Mark PR as Draft to emit Stage 0 fast-fail advisory.")
     p_init.add_argument("--level", choices=VALID_LEVELS, default="L1")
     p_init.add_argument("--material", choices=VALID_MATERIALS, default="auto")
     p_init.add_argument("--overlay", action="append", help="Dynamic review overlay JSON path (repeatable).")
@@ -2881,6 +3569,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_next = sub.add_parser("next", help="Unlock ready lanes and dynamically stitch itemized prompts.")
     p_next.add_argument("--run", required=True)
     p_next.add_argument("--lane", default=None)
+    p_next.add_argument("--dispatch", choices=VALID_DISPATCH_MODES, default=None, help="Override dispatch mode (bundle or parallel) for this next call.")
     p_next.add_argument("--emit-prompts", action="store_true")
     p_next.add_argument("--inline", action="store_true")
     p_next.add_argument("--json", action="store_true")
@@ -2908,7 +3597,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_submit.add_argument("--question", action="append")
     p_submit.add_argument("--risk", action="append")
     p_submit.add_argument("--meta-json", default=None)
+    p_submit.add_argument("--ux-all-pass", action="store_true", help="Shortcut: auto-expand 14-group 70-rule meta.ux_coverage as all-pass (combinable with meta.ux_overrides).")
     p_submit.add_argument("--json", action="store_true")
+
+    p_sbatch = sub.add_parser("submit-batch", help="Atomically validate and submit multiple lane results in a single CLI call.")
+    p_sbatch.add_argument("--run", required=True)
+    p_sbatch.add_argument("--input", required=True, help="JSON file or '-' containing {'submissions': [{'lane_id': ..., ...}]}.")
+    p_sbatch.add_argument("--json", action="store_true")
 
     p_fin = sub.add_parser("finalize", help="Verify all lanes/rules, run gate_check, and emit HTML + Markdown report.")
     p_fin.add_argument("--run", required=True)
@@ -2924,13 +3619,63 @@ def build_parser() -> argparse.ArgumentParser:
     p_ren.add_argument("--out", default=None, help="Optional custom output path for report.html.")
     p_ren.add_argument("--json", action="store_true")
 
-    p_re = sub.add_parser("recheck", help="Start next incremental review round after fixes.")
+    p_re = sub.add_parser("recheck", help="Start next incremental review round after fixes (Delta mode by default).")
     p_re.add_argument("--run", required=True)
     p_re.add_argument("--force-lanes", default=None)
+    p_re.add_argument("--full-recheck", action="store_true", help="Re-check every active rule instead of inheriting previously passed rules.")
     p_re.add_argument("--commit", default=None)
     p_re.add_argument("--json", action="store_true")
 
     return parser
+
+
+def cmd_submit_batch(args: argparse.Namespace) -> int:
+    run_dir = Path(args.run).resolve()
+    try:
+        raw = sys.stdin.read() if args.input == "-" else Path(args.input).read_text(encoding="utf-8")
+        parsed = json.loads(raw)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"review_runner submit-batch: invalid JSON input: {exc}", file=sys.stderr)
+        return 2
+    subs = parsed.get("submissions") if isinstance(parsed, dict) else parsed
+    if not isinstance(subs, list) or not subs:
+        print("review_runner submit-batch: input must contain a non-empty 'submissions' list", file=sys.stderr)
+        return 2
+    results_out: list[dict[str, Any]] = []
+    any_error = False
+    for item in subs:
+        if not isinstance(item, dict) or not str(item.get("lane_id", "")).strip():
+            results_out.append({"ok": False, "errors": ["each submission item requires a non-empty lane_id"]})
+            any_error = True
+            continue
+        lid = str(item["lane_id"]).strip()
+        sub_args = argparse.Namespace(
+            run=str(run_dir), lane=lid, input=None, token=None, status=None, reviewer=None, summary=None,
+            reason=None, check_json=None, evidence=None, cmd_run=None, finding_json=None, unrun_json=None,
+            unverified=None, test_gap=None, question=None, risk=None, meta_json=None, ux_all_pass=False, json=True,
+        )
+        # Validate and persist directly via stdin capture
+        buf = io.StringIO()
+        err_buf = io.StringIO()
+        old_in = sys.stdin
+        sys.stdin = io.StringIO(json.dumps(item, ensure_ascii=False))
+        sub_args.input = "-"
+        try:
+            from contextlib import redirect_stdout, redirect_stderr
+            with redirect_stdout(buf), redirect_stderr(err_buf):
+                rc = cmd_submit(sub_args)
+        finally:
+            sys.stdin = old_in
+        parsed_resp = json.loads(buf.getvalue()) if buf.getvalue().strip() else {"ok": False, "lane_id": lid, "errors": [err_buf.getvalue().strip()]}
+        results_out.append(parsed_resp)
+        if rc != 0:
+            any_error = True
+    if args.json:
+        print(json.dumps({"ok": not any_error, "count": len(results_out), "results": results_out}, ensure_ascii=False, indent=2))
+    else:
+        for r in results_out:
+            print(f"{'✓' if r.get('ok') else '✗'} {r.get('lane_id')}: {r.get('status') or r.get('errors')}")
+    return 2 if any_error else 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -2945,6 +3690,7 @@ def main(argv: list[str] | None = None) -> int:
         "next": cmd_next,
         "prompt": cmd_prompt,
         "submit": cmd_submit,
+        "submit-batch": cmd_submit_batch,
         "finalize": cmd_finalize,
         "render": cmd_render,
         "recheck": cmd_recheck,
